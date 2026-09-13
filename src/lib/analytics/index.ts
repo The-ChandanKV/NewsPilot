@@ -1,3 +1,6 @@
-export { computePipelineAnalytics } from "@/lib/analytics/compute";
+export { computePipelineAnalytics, buildOperationalAlerts } from "@/lib/analytics/compute";
 export { recordAnalyticsEvent, listAnalyticsEvents } from "@/lib/analytics/events";
-export type { PipelineAnalyticsSnapshot } from "@/lib/analytics/types";
+export type {
+  PipelineAnalyticsSnapshot,
+  PipelineAnalyticsAlert,
+} from "@/lib/analytics/types";

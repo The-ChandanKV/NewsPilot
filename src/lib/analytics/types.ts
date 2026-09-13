@@ -77,5 +77,28 @@ export type PipelineAnalyticsSnapshot = {
     articlesRetrieved: number;
   }>;
   failedProviders: PipelineProviderFailureStat[];
+  /**
+   * Structured flags for ops triage (excessive API/AI, dupes, slow, failures).
+   * Computed in analytics layer — UI only renders them.
+   */
+  alerts: PipelineAnalyticsAlert[];
   insights: string[];
+};
+
+export type PipelineAnalyticsAlertKind =
+  | "excessive_api_usage"
+  | "excessive_ai_calls"
+  | "duplicate_news"
+  | "slow_processing"
+  | "failed_providers";
+
+export type PipelineAnalyticsAlertSeverity = "info" | "warning" | "critical";
+
+export type PipelineAnalyticsAlert = {
+  kind: PipelineAnalyticsAlertKind;
+  severity: PipelineAnalyticsAlertSeverity;
+  title: string;
+  detail: string;
+  metric?: string;
+  value?: number;
 };

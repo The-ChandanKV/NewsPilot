@@ -280,6 +280,12 @@ export default function HomePage() {
           Save topics and stories, reopen past briefings, and ask research
           questions grounded in your stored news.
         </p>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          <a href="/admin/analytics" className="underline underline-offset-2">
+            Pipeline analytics
+          </a>{" "}
+          (admin / developer)
+        </p>
       </header>
 
       <PromptInputBox

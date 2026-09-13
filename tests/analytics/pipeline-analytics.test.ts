@@ -5,6 +5,7 @@ import { resetEnvForTests } from "@/config/env";
 import {
   computePipelineAnalytics,
   averageSourcesInBriefing,
+  buildOperationalAlerts,
 } from "@/lib/analytics/compute";
 import {
   recordAnalyticsEvent,
@@ -202,7 +203,49 @@ describe("pipeline analytics", () => {
       true,
     );
     expect(snapshot.insights.length).toBeGreaterThan(0);
+    expect(snapshot.alerts.some((alert) => alert.kind === "failed_providers")).toBe(
+      true,
+    );
     expect(JSON.stringify(snapshot)).not.toMatch(/api_key|sk-/i);
+  });
+
+  it("builds structured alerts for duplicate / AI / slow / API issues", () => {
+    const alerts = buildOperationalAlerts({
+      generatedAt: new Date().toISOString(),
+      windowDays: 7,
+      windowFrom: "2026-09-07",
+      windowTo: "2026-09-13",
+      totals: {
+        articlesRetrieved: 100,
+        duplicateArticlesRemoved: 55,
+        duplicateRate: 0.55,
+        storiesGenerated: 10,
+        averageSourcesPerStory: 2,
+        aiCalls: 50,
+        aiCacheHits: 5,
+        aiCacheHitRate: 0.09,
+        failedAiRequests: 2,
+        averageBriefingGenerationMs: 18000,
+        apiFailures: 4,
+        briefingCount: 5,
+        jobRunsCompleted: 4,
+        jobRunsFailed: 1,
+        jobTopicsFailed: 1,
+      },
+      trends: [],
+      articlesPerTopic: [],
+      mostCoveredTopics: [],
+      failedProviders: [
+        { provider: "newsapi", kind: "news", count: 3, lastCode: "NEWS_RATE_LIMITED" },
+      ],
+    });
+
+    const kinds = alerts.map((alert) => alert.kind);
+    expect(kinds).toContain("duplicate_news");
+    expect(kinds).toContain("excessive_ai_calls");
+    expect(kinds).toContain("slow_processing");
+    expect(kinds).toContain("excessive_api_usage");
+    expect(kinds).toContain("failed_providers");
   });
 
   it("computes average sources from stored stories", () => {

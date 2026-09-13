@@ -1,6 +1,7 @@
 import { desc } from "drizzle-orm";
 import { listAnalyticsEvents } from "@/lib/analytics/events";
 import type {
+  PipelineAnalyticsAlert,
   PipelineAnalyticsDayTrend,
   PipelineAnalyticsSnapshot,
   PipelineProviderFailureStat,
@@ -69,68 +70,130 @@ function listJobRuns(limit = 100) {
     .all();
 }
 
-function buildInsights(snapshot: Omit<PipelineAnalyticsSnapshot, "insights">): string[] {
-  const insights: string[] = [];
+/**
+ * Derive operational alerts used to spot cost / reliability issues.
+ * Pure function — safe to unit test without UI.
+ */
+export function buildOperationalAlerts(
+  snapshot: Omit<PipelineAnalyticsSnapshot, "insights" | "alerts">,
+): PipelineAnalyticsAlert[] {
+  const alerts: PipelineAnalyticsAlert[] = [];
   const { totals, trends, failedProviders } = snapshot;
+  const recent = trends.slice(-3);
+  const articlesPerDay = totals.articlesRetrieved / Math.max(1, snapshot.windowDays);
+  const apiFailRate = totals.apiFailures / Math.max(1, totals.briefingCount);
+
+  if (totals.apiFailures >= 3 || apiFailRate >= 0.5) {
+    alerts.push({
+      kind: "excessive_api_usage",
+      severity: totals.apiFailures >= 8 ? "critical" : "warning",
+      title: "Excessive or failing news API usage",
+      detail: `${totals.apiFailures} API/provider failure signal(s) across ${totals.briefingCount} briefing(s); ~${articlesPerDay.toFixed(0)} articles/day retrieved.`,
+      metric: "apiFailures",
+      value: totals.apiFailures,
+    });
+  } else if (articlesPerDay >= 80) {
+    alerts.push({
+      kind: "excessive_api_usage",
+      severity: "info",
+      title: "High article retrieval volume",
+      detail: `Averaging ~${articlesPerDay.toFixed(0)} articles/day — watch provider quotas.`,
+      metric: "articlesRetrieved",
+      value: totals.articlesRetrieved,
+    });
+  }
+
+  if (totals.aiCalls >= 40 && totals.aiCacheHitRate < 0.25) {
+    alerts.push({
+      kind: "excessive_ai_calls",
+      severity: totals.aiCalls >= 80 ? "critical" : "warning",
+      title: "Excessive AI calls",
+      detail: `${totals.aiCalls} AI calls with ${(totals.aiCacheHitRate * 100).toFixed(0)}% cache hit rate.`,
+      metric: "aiCalls",
+      value: totals.aiCalls,
+    });
+  } else if (recent.length >= 2) {
+    const first = recent[0]!.aiCalls;
+    const last = recent[recent.length - 1]!.aiCalls;
+    if (last > first * 1.5 + 5) {
+      alerts.push({
+        kind: "excessive_ai_calls",
+        severity: "info",
+        title: "AI calls trending up",
+        detail: `Recent daily AI calls rose from ${first} to ${last}.`,
+        metric: "aiCalls",
+        value: last,
+      });
+    }
+  }
 
   if (totals.duplicateRate >= 0.45) {
-    insights.push(
-      `High duplicate rate (${(totals.duplicateRate * 100).toFixed(0)}%) — review clustering / near-dupe thresholds.`,
-    );
+    alerts.push({
+      kind: "duplicate_news",
+      severity: totals.duplicateRate >= 0.65 ? "critical" : "warning",
+      title: "High duplicate news rate",
+      detail: `${(totals.duplicateRate * 100).toFixed(0)}% of retrieved articles removed as duplicates (${totals.duplicateArticlesRemoved}/${totals.articlesRetrieved}).`,
+      metric: "duplicateRate",
+      value: totals.duplicateRate,
+    });
   }
-  if (totals.aiCalls >= 40 && totals.aiCacheHitRate < 0.25) {
-    insights.push(
-      `Elevated AI usage (${totals.aiCalls} calls) with low cache hit rate (${(totals.aiCacheHitRate * 100).toFixed(0)}%).`,
-    );
-  }
+
   if (totals.averageBriefingGenerationMs >= 15000) {
-    insights.push(
-      `Slow briefing generation (avg ${(totals.averageBriefingGenerationMs / 1000).toFixed(1)}s) — check provider latency.`,
-    );
-  }
-  if (totals.apiFailures > 0) {
-    insights.push(
-      `${totals.apiFailures} news API / provider failure signal(s) in this window.`,
-    );
-  }
-  if (totals.failedAiRequests > 0) {
-    insights.push(
-      `${totals.failedAiRequests} failed AI request signal(s) — inspect provider errors / retries.`,
-    );
-  }
-  if (totals.jobRunsFailed > 0 || totals.jobTopicsFailed > 0) {
-    insights.push(
-      `Job health: ${totals.jobRunsFailed} failed job run(s), ${totals.jobTopicsFailed} failed topic(s).`,
-    );
-  }
-
-  const recent = trends.slice(-3);
-  if (recent.length >= 2) {
-    const aiTrend = recent.map((day) => day.aiCalls);
-    if (aiTrend[aiTrend.length - 1]! > aiTrend[0]! * 1.5 + 5) {
-      insights.push("AI calls are trending up over recent days.");
-    }
-    const durTrend = recent.map((day) => day.averageBriefingGenerationMs);
-    if (
-      durTrend[durTrend.length - 1]! > 0 &&
-      durTrend[0]! > 0 &&
-      durTrend[durTrend.length - 1]! > durTrend[0]! * 1.5
-    ) {
-      insights.push("Briefing generation time is trending slower.");
+    alerts.push({
+      kind: "slow_processing",
+      severity:
+        totals.averageBriefingGenerationMs >= 30000 ? "critical" : "warning",
+      title: "Slow briefing generation",
+      detail: `Average generation time ${(totals.averageBriefingGenerationMs / 1000).toFixed(1)}s.`,
+      metric: "averageBriefingGenerationMs",
+      value: totals.averageBriefingGenerationMs,
+    });
+  } else if (recent.length >= 2) {
+    const first = recent[0]!.averageBriefingGenerationMs;
+    const last = recent[recent.length - 1]!.averageBriefingGenerationMs;
+    if (first > 0 && last > first * 1.5) {
+      alerts.push({
+        kind: "slow_processing",
+        severity: "info",
+        title: "Processing time trending slower",
+        detail: `Avg generation ms rose from ${Math.round(first)} to ${Math.round(last)}.`,
+        metric: "averageBriefingGenerationMs",
+        value: last,
+      });
     }
   }
 
-  const topFail = failedProviders[0];
-  if (topFail && topFail.count >= 2) {
-    insights.push(
-      `Most failing provider: ${topFail.provider} (${topFail.kind}, ${topFail.count} events).`,
-    );
+  const failureCount =
+    failedProviders.reduce((sum, row) => sum + row.count, 0) +
+    totals.failedAiRequests +
+    totals.jobRunsFailed;
+  if (failureCount > 0 || failedProviders.length > 0) {
+    const top = failedProviders[0];
+    alerts.push({
+      kind: "failed_providers",
+      severity:
+        failureCount >= 5 || totals.jobRunsFailed > 0 ? "critical" : "warning",
+      title: "Failed providers / jobs",
+      detail: top
+        ? `Top failure: ${top.provider} (${top.kind}, ${top.count}). AI request failures: ${totals.failedAiRequests}. Failed jobs: ${totals.jobRunsFailed}.`
+        : `${totals.failedAiRequests} AI failure(s), ${totals.jobRunsFailed} failed job run(s).`,
+      metric: "failedProviders",
+      value: failureCount,
+    });
   }
 
-  if (insights.length === 0) {
-    insights.push("No major pipeline anomalies detected in this window.");
+  return alerts;
+}
+
+function buildInsights(
+  snapshot: Omit<PipelineAnalyticsSnapshot, "insights">,
+): string[] {
+  if (snapshot.alerts.length === 0) {
+    return ["No major pipeline anomalies detected in this window."];
   }
-  return insights;
+  return snapshot.alerts.map(
+    (alert) => `[${alert.severity}] ${alert.title}: ${alert.detail}`,
+  );
 }
 
 /**
@@ -361,7 +424,7 @@ export function computePipelineAnalytics(options?: {
   const durationSamples = briefings.map((b) => b.generationStats.generationDurationMs);
   const sourceSamples = briefings.flatMap((b) => b.stories.map(sourcesForStory));
 
-  const base: Omit<PipelineAnalyticsSnapshot, "insights"> = {
+  const base: Omit<PipelineAnalyticsSnapshot, "insights" | "alerts"> = {
     generatedAt: now.toISOString(),
     windowDays: days,
     windowFrom,
@@ -389,9 +452,12 @@ export function computePipelineAnalytics(options?: {
     failedProviders: [...providerCounts.values()].sort((a, b) => b.count - a.count),
   };
 
+  const alerts = buildOperationalAlerts(base);
+  const withAlerts = { ...base, alerts };
+
   return {
-    ...base,
-    insights: buildInsights(base),
+    ...withAlerts,
+    insights: buildInsights(withAlerts),
   };
 }
 
