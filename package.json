@@ -13,7 +13,8 @@
     "db:migrate": "node scripts/migrate.js",
     "db:studio": "drizzle-kit studio",
     "job:daily-briefings": "tsx scripts/run-daily-briefings.ts",
-    "job:email-delivery": "tsx scripts/run-email-delivery.ts"
+    "job:email-delivery": "tsx scripts/run-email-delivery.ts",
+    "eval:summaries": "tsx scripts/run-summary-evaluation.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",

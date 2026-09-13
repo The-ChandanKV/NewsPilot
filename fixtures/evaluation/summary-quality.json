@@ -1,0 +1,199 @@
+[
+  {
+    "id": "openai-enterprise-launch",
+    "topic": "Artificial Intelligence",
+    "notes": "Multi-source product launch with partial disagreement on pricing.",
+    "articles": [
+      {
+        "source": "Reuters",
+        "title": "OpenAI launches enterprise model with stronger safety controls",
+        "description": "OpenAI announced a new enterprise-focused model on Tuesday. Reuters reported that pricing details were not disclosed.",
+        "url": "https://www.reuters.com/example/openai-enterprise",
+        "publishedAt": "2026-09-12T14:00:00.000Z"
+      },
+      {
+        "source": "The Verge",
+        "title": "OpenAI’s enterprise push arrives",
+        "description": "The Verge says OpenAI unveiled an enterprise model and expects pricing later this year. Microsoft is listed as a distribution partner in the coverage.",
+        "url": "https://www.theverge.com/example/openai-enterprise",
+        "publishedAt": "2026-09-12T15:30:00.000Z"
+      }
+    ],
+    "requiredEntities": ["OpenAI", "enterprise"],
+    "requiredFacts": ["announced", "enterprise", "pricing"],
+    "allowedSources": ["Reuters", "The Verge"],
+    "candidates": [
+      {
+        "id": "grounded-good",
+        "label": "Grounded multi-source summary",
+        "headline": "OpenAI launches enterprise model",
+        "summary": "Reuters and The Verge report that OpenAI announced a new enterprise-focused model. Reuters says pricing was not disclosed, while The Verge reports pricing is expected later this year. The Verge also notes Microsoft as a distribution partner.",
+        "whyItMatters": "Enterprise buyers may reassess AI vendor options based on the launch and unresolved pricing details.",
+        "keyFacts": [
+          "OpenAI announced an enterprise model",
+          "Reuters: pricing not disclosed",
+          "The Verge: pricing expected later this year"
+        ],
+        "expectHallucination": false,
+        "expectUnsupported": false
+      },
+      {
+        "id": "hallucinated-bad",
+        "label": "Hallucinated numbers and invented source",
+        "headline": "OpenAI enterprise model priced at $2,499/month",
+        "summary": "Bloomberg exclusively reports OpenAI’s new enterprise model costs $2,499 per month and already has 10 million customers. The launch includes quantum encryption that no other vendor offers.",
+        "whyItMatters": "This will immediately end all competing AI products.",
+        "keyFacts": [
+          "$2,499 monthly price",
+          "10 million customers",
+          "quantum encryption"
+        ],
+        "expectHallucination": true,
+        "expectUnsupported": true
+      }
+    ]
+  },
+  {
+    "id": "space-launch-delay",
+    "topic": "Space",
+    "notes": "Single-event weather delay with clear attribution.",
+    "articles": [
+      {
+        "source": "SpaceNews",
+        "title": "Rocket launch delayed by weather",
+        "description": "SpaceNews reports the orbital launch window was scrubbed due to high winds at the coastal pad. Officials said teams will try again tomorrow if conditions improve.",
+        "url": "https://spacenews.com/example/launch-delay",
+        "publishedAt": "2026-09-11T09:00:00.000Z"
+      },
+      {
+        "source": "Reuters",
+        "title": "Launch scrubbed amid high winds",
+        "description": "Reuters confirmed the mission was delayed after wind speeds exceeded safety limits. No vehicle damage was reported.",
+        "url": "https://www.reuters.com/example/launch-delay",
+        "publishedAt": "2026-09-11T09:20:00.000Z"
+      }
+    ],
+    "requiredEntities": ["launch", "winds"],
+    "requiredFacts": ["delayed", "winds", "weather"],
+    "allowedSources": ["SpaceNews", "Reuters"],
+    "candidates": [
+      {
+        "id": "grounded-good",
+        "label": "Accurate delay summary",
+        "headline": "Launch delayed by high winds",
+        "summary": "SpaceNews and Reuters report the orbital launch was delayed after high winds exceeded safety limits. SpaceNews says teams may try again tomorrow if conditions improve. Reuters reports no vehicle damage.",
+        "whyItMatters": "Schedule slips can cascade into later mission windows for orbital deployments.",
+        "keyFacts": [
+          "Launch delayed",
+          "High winds exceeded safety limits",
+          "No vehicle damage reported"
+        ],
+        "expectHallucination": false,
+        "expectUnsupported": false
+      },
+      {
+        "id": "unsupported-cause",
+        "label": "Unsupported causal claim",
+        "headline": "Launch delayed by sabotage",
+        "summary": "Officials secretly confirmed sabotage caused the scrub, according to unnamed rival agencies. The rocket engines were permanently destroyed.",
+        "whyItMatters": "This proves intentional interference in commercial spaceflight.",
+        "keyFacts": ["sabotage", "engines destroyed"],
+        "expectHallucination": true,
+        "expectUnsupported": true
+      }
+    ]
+  },
+  {
+    "id": "cyber-patch-advisory",
+    "topic": "Cybersecurity",
+    "notes": "Security advisory with CVE-like detail constrained to source text.",
+    "articles": [
+      {
+        "source": "The Record",
+        "title": "Vendors rush patches after critical remote flaw disclosure",
+        "description": "The Record reports a critical remote code execution flaw affecting widely used VPN appliances. Maintainers released emergency patches and urged customers to update within 24 hours.",
+        "url": "https://therecord.media/example/vpn-flaw",
+        "publishedAt": "2026-09-10T18:00:00.000Z"
+      },
+      {
+        "source": "BleepingComputer",
+        "title": "Emergency VPN patches land after RCE disclosure",
+        "description": "BleepingComputer says multiple vendors published patches for a remote code execution issue in VPN gateways. There is no confirmed mass exploitation yet, according to the report.",
+        "url": "https://www.bleepingcomputer.com/example/vpn-flaw",
+        "publishedAt": "2026-09-10T19:10:00.000Z"
+      }
+    ],
+    "requiredEntities": ["VPN", "patch", "remote"],
+    "requiredFacts": ["patches", "remote code execution", "update"],
+    "allowedSources": ["The Record", "BleepingComputer"],
+    "candidates": [
+      {
+        "id": "grounded-good",
+        "label": "Grounded security summary",
+        "headline": "Emergency patches follow VPN RCE disclosure",
+        "summary": "The Record and BleepingComputer report a critical remote code execution flaw affecting VPN appliances/gateways. Maintainers released emergency patches and urged rapid updates. BleepingComputer says mass exploitation has not been confirmed.",
+        "whyItMatters": "Exposed VPN gateways are high-value targets; delayed patching increases compromise risk.",
+        "keyFacts": [
+          "Critical remote code execution flaw",
+          "Emergency patches released",
+          "No confirmed mass exploitation yet"
+        ],
+        "expectHallucination": false,
+        "expectUnsupported": false
+      },
+      {
+        "id": "overconfident-bad",
+        "label": "Overconfident hallucination",
+        "headline": "Nation-state group APT-Zebra exploiting VPN flaw worldwide",
+        "summary": "APT-Zebra has already breached 40% of Fortune 500 networks using this VPN bug. The Record confirms ransom demands average $12 million.",
+        "whyItMatters": "Every major company is already compromised.",
+        "keyFacts": ["APT-Zebra", "40% Fortune 500", "$12 million"],
+        "expectHallucination": true,
+        "expectUnsupported": true
+      }
+    ]
+  },
+  {
+    "id": "thin-single-source",
+    "topic": "Startups",
+    "notes": "Thin single-source item — summaries should stay cautious.",
+    "articles": [
+      {
+        "source": "TechCrunch",
+        "title": "Regional logistics startup raises seed round",
+        "description": "TechCrunch reports a regional logistics startup raised a seed round to expand warehouse automation tooling. The company did not disclose the amount.",
+        "url": "https://techcrunch.com/example/seed-round",
+        "publishedAt": "2026-09-09T12:00:00.000Z"
+      }
+    ],
+    "requiredEntities": ["startup", "seed"],
+    "requiredFacts": ["seed", "logistics", "automation"],
+    "allowedSources": ["TechCrunch"],
+    "candidates": [
+      {
+        "id": "grounded-cautious",
+        "label": "Cautious single-source summary",
+        "headline": "Logistics startup raises undisclosed seed round",
+        "summary": "TechCrunch reports a regional logistics startup raised a seed round to expand warehouse automation tooling. The company did not disclose the amount, according to the report.",
+        "whyItMatters": "Seed funding can accelerate automation tooling for regional warehouse operators, though financial details remain limited.",
+        "keyFacts": [
+          "Seed round raised",
+          "Warehouse automation expansion",
+          "Amount not disclosed"
+        ],
+        "expectHallucination": false,
+        "expectUnsupported": false
+      },
+      {
+        "id": "inflated-round",
+        "label": "Invented funding amount",
+        "headline": "Startup raises $80M Series B",
+        "summary": "The startup closed an $80 million Series B led by SoftBank with a $1.2 billion valuation.",
+        "whyItMatters": "This makes it the largest logistics raise in history.",
+        "keyFacts": ["$80 million", "SoftBank", "$1.2 billion valuation"],
+        "expectHallucination": true,
+        "expectUnsupported": true
+      }
+    ]
+  }
+]

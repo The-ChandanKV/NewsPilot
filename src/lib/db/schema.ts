@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const briefingRequests = sqliteTable("briefing_requests", {
   id: text("id").primaryKey(),
@@ -285,4 +285,31 @@ export const pipelineAnalyticsEvents = sqliteTable("pipeline_analytics_events", 
   /** Safe operational detail only — never secrets or PII. */
   detail: text("detail"),
   metaJson: text("meta_json").notNull().default("{}"),
+});
+
+/**
+ * Stored summary quality evaluation results (fixed-dataset runs).
+ * Used to demonstrate the AI pipeline is tested, not blindly trusted.
+ */
+export const summaryEvaluations = sqliteTable("summary_evaluations", {
+  id: text("id").primaryKey(),
+  runId: text("run_id").notNull(),
+  caseId: text("case_id").notNull(),
+  candidateId: text("candidate_id").notNull(),
+  topic: text("topic").notNull(),
+  scorer: text("scorer").notNull(),
+  datasetHash: text("dataset_hash").notNull(),
+  overallScore: real("overall_score").notNull(),
+  hallucinationFlagged: integer("hallucination_flagged", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  unsupportedClaimCount: integer("unsupported_claim_count").notNull().default(0),
+  summaryWordCount: integer("summary_word_count").notNull().default(0),
+  expectationMatch: integer("expectation_match", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  scoresJson: text("scores_json").notNull(),
+  metricsJson: text("metrics_json").notNull(),
+  disclaimer: text("disclaimer").notNull(),
+  createdAt: text("created_at").notNull(),
 });

@@ -227,6 +227,28 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS pipeline_analytics_events_kind_idx
   ON pipeline_analytics_events (kind);
+
+  CREATE TABLE IF NOT EXISTS summary_evaluations (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    case_id TEXT NOT NULL,
+    candidate_id TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    scorer TEXT NOT NULL,
+    dataset_hash TEXT NOT NULL,
+    overall_score REAL NOT NULL,
+    hallucination_flagged INTEGER NOT NULL DEFAULT 0,
+    unsupported_claim_count INTEGER NOT NULL DEFAULT 0,
+    summary_word_count INTEGER NOT NULL DEFAULT 0,
+    expectation_match INTEGER NOT NULL DEFAULT 0,
+    scores_json TEXT NOT NULL,
+    metrics_json TEXT NOT NULL,
+    disclaimer TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS summary_evaluations_run_idx
+  ON summary_evaluations (run_id);
 `);
 
 db.close();
