@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import type { DailyBriefingStory } from "@/types/briefing";
 import type { PersonalizedFeedStory } from "@/lib/topics/types";
 import { ChangeBadge } from "@/components/ChangeBadge";
+import { CoverageComparisonPanel } from "@/components/CoverageComparisonPanel";
 import { VerificationBadge } from "@/components/VerificationBadge";
+import { canCompareCoverage } from "@/lib/coverage/build";
+import type { CoverageCompareResult } from "@/lib/coverage/types";
 
 type Props = {
   story: DailyBriefingStory | PersonalizedFeedStory;
@@ -32,6 +36,41 @@ export function StoryCard({
   const topic =
     topicLabel ||
     (personalized ? story.matchedTopic : undefined);
+  const comparable = canCompareCoverage(story);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<CoverageCompareResult | null>(
+    null,
+  );
+
+  async function runCompare() {
+    if (compareOpen && comparison) {
+      setCompareOpen(false);
+      return;
+    }
+    setCompareOpen(true);
+    if (comparison) return;
+
+    setCompareLoading(true);
+    setCompareError(null);
+    try {
+      const response = await fetch("/api/coverage/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ story, topic }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Coverage compare failed");
+      }
+      setComparison(payload as CoverageCompareResult);
+    } catch (err) {
+      setCompareError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCompareLoading(false);
+    }
+  }
 
   return (
     <article
@@ -55,6 +94,21 @@ export function StoryCard({
               aria-pressed={saved}
             >
               {saved ? "Saved" : "Save"}
+            </button>
+          ) : null}
+          {comparable ? (
+            <button
+              type="button"
+              onClick={() => void runCompare()}
+              disabled={compareLoading}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs transition hover:bg-white/5 disabled:opacity-50"
+              aria-expanded={compareOpen}
+            >
+              {compareLoading
+                ? "Comparing…"
+                : compareOpen
+                  ? "Hide comparison"
+                  : "Compare coverage"}
             </button>
           ) : null}
           <VerificationBadge verification={story.verification} />
@@ -128,6 +182,19 @@ export function StoryCard({
         >
           Read primary source
         </a>
+      ) : null}
+
+      {compareError ? (
+        <p className="mt-3 text-sm text-amber-200" role="alert">
+          {compareError}
+        </p>
+      ) : null}
+
+      {compareOpen && comparison ? (
+        <CoverageComparisonPanel
+          result={comparison}
+          onClose={() => setCompareOpen(false)}
+        />
       ) : null}
     </article>
   );
