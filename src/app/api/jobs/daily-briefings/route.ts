@@ -11,6 +11,7 @@ import {
   getDailyBriefingScheduleConfig,
   runDailyBriefingsJob,
 } from "@/lib/jobs/daily-briefings";
+import { runEmailDeliveryJob } from "@/lib/notifications/delivery";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       date?: string;
       force?: boolean;
       topics?: string[];
+      skipEmail?: boolean;
     };
 
     const result = await runDailyBriefingsJob({
@@ -60,9 +62,24 @@ export async function POST(request: NextRequest) {
       topics: payload.topics,
     });
 
-    return NextResponse.json(result, {
-      status: result.status === "failed" ? 500 : 200,
-    });
+    let emailDelivery = null;
+    if (
+      env.EMAIL_DELIVERY_AFTER_BRIEFINGS &&
+      result.status !== "failed" &&
+      !payload.skipEmail
+    ) {
+      emailDelivery = await runEmailDeliveryJob({
+        date: result.date,
+        ignoreSchedule: Boolean(payload.force),
+      });
+    }
+
+    return NextResponse.json(
+      { ...result, emailDelivery },
+      {
+        status: result.status === "failed" ? 500 : 200,
+      },
+    );
   } catch (error) {
     logger.error("POST /api/jobs/daily-briefings failed", {
       error: error instanceof Error ? error.message : String(error),

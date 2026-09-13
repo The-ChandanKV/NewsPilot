@@ -184,3 +184,89 @@ export const jobRuns = sqliteTable("job_runs", {
   resultJson: text("result_json"),
   error: text("error"),
 });
+
+/**
+ * Daily news email subscriptions (delivery prefs + unsubscribe token).
+ * Independent of news retrieval / AI generation.
+ */
+export const emailSubscriptions = sqliteTable(
+  "email_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    email: text("email").notNull(),
+    timezone: text("timezone").notNull().default("UTC"),
+    deliveryHour: integer("delivery_hour").notNull().default(6),
+    deliveryMinute: integer("delivery_minute").notNull().default(0),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    unsubscribeToken: text("unsubscribe_token").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    unsubscribedAt: text("unsubscribed_at"),
+  },
+  (table) => ({
+    clientUnique: uniqueIndex("email_subscriptions_client_uid").on(table.clientId),
+    emailUnique: uniqueIndex("email_subscriptions_email_uid").on(table.email),
+    tokenUnique: uniqueIndex("email_subscriptions_token_uid").on(
+      table.unsubscribeToken,
+    ),
+  }),
+);
+
+/** Topics included in an email subscription (subset of user topics). */
+export const emailSubscriptionTopics = sqliteTable(
+  "email_subscription_topics",
+  {
+    id: text("id").primaryKey(),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => emailSubscriptions.id),
+    topic: text("topic").notNull(),
+    normalizedTopic: text("normalized_topic").notNull(),
+  },
+  (table) => ({
+    subTopicUnique: uniqueIndex("email_sub_topics_uid").on(
+      table.subscriptionId,
+      table.normalizedTopic,
+    ),
+  }),
+);
+
+/**
+ * Per subscription+briefing delivery log.
+ * Unique index prevents duplicate sends of the same briefing.
+ */
+export const emailDeliveries = sqliteTable(
+  "email_deliveries",
+  {
+    id: text("id").primaryKey(),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => emailSubscriptions.id),
+    briefingId: text("briefing_id")
+      .notNull()
+      .references(() => storedDailyBriefings.id),
+    topic: text("topic").notNull(),
+    date: text("date").notNull(),
+    status: text("status").notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastAttemptAt: text("last_attempt_at"),
+    provider: text("provider"),
+    providerMessageId: text("provider_message_id"),
+    error: text("error"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    sentAt: text("sent_at"),
+  },
+  (table) => ({
+    subBriefingUnique: uniqueIndex("email_deliveries_sub_briefing_uid").on(
+      table.subscriptionId,
+      table.briefingId,
+    ),
+  }),
+);

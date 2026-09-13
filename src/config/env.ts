@@ -79,6 +79,29 @@ const envSchema = z.object({
   DAILY_BRIEFING_FREQUENCIES: z.string().default("daily,twice_daily"),
   /** Optional shared secret for POST /api/jobs/daily-briefings */
   DAILY_JOB_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+
+  // Daily news email delivery (reuses StoredDailyBriefing — no extra LLM calls)
+  /** log = stdout only; resend = Resend HTTP API */
+  NOTIFICATION_PROVIDER: z.enum(["log", "resend"]).default("log"),
+  RESEND_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  EMAIL_FROM: z.preprocess(emptyToUndefined, z.string().optional()),
+  EMAIL_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+  EMAIL_MAX_SEND_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  /** Public base URL for unsubscribe links (e.g. https://newspilot.example) */
+  APP_BASE_URL: z.string().default("http://localhost:3000"),
+  /**
+   * When true, the daily briefings CLI/API also runs email delivery after generation.
+   */
+  EMAIL_DELIVERY_AFTER_BRIEFINGS: z
+    .preprocess((value) => {
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["1", "true", "yes", "on"].includes(normalized)) return true;
+        if (["0", "false", "no", "off", ""].includes(normalized)) return false;
+      }
+      return value;
+    }, z.boolean())
+    .default(true),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

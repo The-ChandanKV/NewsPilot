@@ -6,6 +6,7 @@ import {
   type HistoryLibraryPayload,
 } from "@/components/HistoryLibraryPanel";
 import { DailyBriefingsPanel } from "@/components/DailyBriefingsPanel";
+import { EmailDeliveryPanel } from "@/components/EmailDeliveryPanel";
 import { MyTopicsPanel } from "@/components/MyTopicsPanel";
 import { StoryCard } from "@/components/StoryCard";
 import { WhatsNewPanel } from "@/components/WhatsNewPanel";
@@ -349,6 +350,8 @@ export default function HomePage() {
           void loadTopicBriefing(topic, match?.id);
         }}
       />
+
+      <EmailDeliveryPanel topics={topics} />
 
       {error ? (
         <p className="text-sm text-amber-200" role="alert">

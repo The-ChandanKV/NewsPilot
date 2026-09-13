@@ -158,6 +158,58 @@ db.exec(`
     result_json TEXT,
     error TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS email_subscriptions (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'UTC',
+    delivery_hour INTEGER NOT NULL DEFAULT 6,
+    delivery_minute INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    unsubscribe_token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    unsubscribed_at TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS email_subscriptions_client_uid
+  ON email_subscriptions (client_id);
+
+  CREATE UNIQUE INDEX IF NOT EXISTS email_subscriptions_email_uid
+  ON email_subscriptions (email);
+
+  CREATE UNIQUE INDEX IF NOT EXISTS email_subscriptions_token_uid
+  ON email_subscriptions (unsubscribe_token);
+
+  CREATE TABLE IF NOT EXISTS email_subscription_topics (
+    id TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL REFERENCES email_subscriptions(id),
+    topic TEXT NOT NULL,
+    normalized_topic TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS email_sub_topics_uid
+  ON email_subscription_topics (subscription_id, normalized_topic);
+
+  CREATE TABLE IF NOT EXISTS email_deliveries (
+    id TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL REFERENCES email_subscriptions(id),
+    briefing_id TEXT NOT NULL REFERENCES stored_daily_briefings(id),
+    topic TEXT NOT NULL,
+    date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TEXT,
+    provider TEXT,
+    provider_message_id TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    sent_at TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS email_deliveries_sub_briefing_uid
+  ON email_deliveries (subscription_id, briefing_id);
 `);
 
 db.close();
