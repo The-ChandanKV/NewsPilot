@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { NextRequest } from "next/server";
+import { resetEnvForTests } from "@/config/env";
+import { resetDbConnectionForTests } from "@/lib/db/client";
+import { migrate } from "@/lib/db/migrate";
 import { briefingCache, summaryCache, topicHistoryCache } from "@/lib/cache/memory";
 import * as briefingModule from "@/lib/pipeline/briefing";
 import { buildBriefingForTopic } from "@/lib/pipeline/briefing";
@@ -78,9 +84,23 @@ async function buildProcessed(topic = TOPIC) {
 
 describe("daily briefing service", () => {
   beforeEach(() => {
+    const dbPath = path.join(
+      os.tmpdir(),
+      `newspilot-briefing-${Date.now()}-${Math.random().toString(16).slice(2)}.db`,
+    );
+    process.env.DATABASE_URL = dbPath;
+    resetEnvForTests();
+    resetDbConnectionForTests();
+    migrate();
     briefingCache.clear();
     summaryCache.clear();
     topicHistoryCache.clear();
+  });
+
+  afterEach(() => {
+    if (process.env.DATABASE_URL?.includes("newspilot-briefing-")) {
+      fs.rmSync(process.env.DATABASE_URL, { force: true });
+    }
   });
 
   it("returns the public briefing shape with clustered stories", async () => {

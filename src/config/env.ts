@@ -64,6 +64,21 @@ const envSchema = z.object({
   AI_SUMMARY_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(21600),
   MAX_STORIES_TO_SUMMARIZE: z.coerce.number().int().positive().default(8),
   AI_SUMMARY_MAX_ARTICLES_PER_CLUSTER: z.coerce.number().int().positive().default(6),
+
+  // Automatic daily briefings
+  /** Local hour (0–23) when the daily job should run. */
+  DAILY_BRIEFING_HOUR: z.coerce.number().int().min(0).max(23).default(6),
+  /** Local minute (0–59). */
+  DAILY_BRIEFING_MINUTE: z.coerce.number().int().min(0).max(59).default(0),
+  /** IANA timezone for the schedule (used for date keys + docs). */
+  DAILY_BRIEFING_TIMEZONE: z.string().default("UTC"),
+  /**
+   * Comma-separated topic frequencies to include in the daily job.
+   * Example: daily,twice_daily
+   */
+  DAILY_BRIEFING_FREQUENCIES: z.string().default("daily,twice_daily"),
+  /** Optional shared secret for POST /api/jobs/daily-briefings */
+  DAILY_JOB_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

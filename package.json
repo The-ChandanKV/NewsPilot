@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.js",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "job:daily-briefings": "tsx scripts/run-daily-briefings.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
@@ -32,6 +33,7 @@
     "eslint": "^9.29.0",
     "eslint-config-next": "^15.3.3",
     "tailwindcss": "^4.1.10",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

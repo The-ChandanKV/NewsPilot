@@ -139,3 +139,48 @@ export const recentlyViewedStories = sqliteTable(
     ),
   }),
 );
+
+/** Durable topic snapshots for change detection across process restarts. */
+export const topicSnapshots = sqliteTable("topic_snapshots", {
+  normalizedTopic: text("normalized_topic").primaryKey(),
+  topic: text("topic").notNull(),
+  generatedAt: text("generated_at").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
+ * Stored automatic daily briefings (one per topic per calendar date).
+ */
+export const storedDailyBriefings = sqliteTable(
+  "stored_daily_briefings",
+  {
+    id: text("id").primaryKey(),
+    topic: text("topic").notNull(),
+    normalizedTopic: text("normalized_topic").notNull(),
+    date: text("date").notNull(),
+    generatedAt: text("generated_at").notNull(),
+    storiesJson: text("stories_json").notNull(),
+    changesJson: text("changes_json").notNull(),
+    statsJson: text("stats_json").notNull(),
+    warningsJson: text("warnings_json").notNull().default("[]"),
+    topDevelopmentsJson: text("top_developments_json").notNull().default("[]"),
+    whyItMattersJson: text("why_it_matters_json").notNull().default("[]"),
+  },
+  (table) => ({
+    topicDateUnique: uniqueIndex("stored_daily_briefings_topic_date_uid").on(
+      table.normalizedTopic,
+      table.date,
+    ),
+  }),
+);
+
+/** Job run locks / audit for idempotent scheduled work. */
+export const jobRuns = sqliteTable("job_runs", {
+  jobKey: text("job_key").primaryKey(),
+  status: text("status").notNull(),
+  startedAt: text("started_at").notNull(),
+  finishedAt: text("finished_at"),
+  resultJson: text("result_json"),
+  error: text("error"),
+});

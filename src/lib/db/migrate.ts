@@ -124,5 +124,47 @@ export function migrate() {
     ON recently_viewed_stories (client_id, story_ref_id)
   `);
 
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS topic_snapshots (
+      normalized_topic TEXT PRIMARY KEY,
+      topic TEXT NOT NULL,
+      generated_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS stored_daily_briefings (
+      id TEXT PRIMARY KEY,
+      topic TEXT NOT NULL,
+      normalized_topic TEXT NOT NULL,
+      date TEXT NOT NULL,
+      generated_at TEXT NOT NULL,
+      stories_json TEXT NOT NULL,
+      changes_json TEXT NOT NULL,
+      stats_json TEXT NOT NULL,
+      warnings_json TEXT NOT NULL DEFAULT '[]',
+      top_developments_json TEXT NOT NULL DEFAULT '[]',
+      why_it_matters_json TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
+
+  db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS stored_daily_briefings_topic_date_uid
+    ON stored_daily_briefings (normalized_topic, date)
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS job_runs (
+      job_key TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
+      result_json TEXT,
+      error TEXT
+    )
+  `);
+
   logger.info("Database schema ensured");
 }

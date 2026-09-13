@@ -40,6 +40,51 @@ export function listUserTopics(clientId: string): UserTopic[] {
   return rows.map(mapRow);
 }
 
+/**
+ * Distinct subscribed topics across all clients, optionally filtered by frequency.
+ * Used by the automatic daily briefing job.
+ */
+export function listDistinctSubscribedTopics(options?: {
+  frequencies?: TopicFrequency[];
+}): Array<{ topic: string; normalizedTopic: string; frequency: TopicFrequency }> {
+  const rows = getDb().select().from(userTopics).all().map(mapRow);
+  const allowed = options?.frequencies?.length
+    ? new Set(options.frequencies)
+    : null;
+
+  const byNormalized = new Map<
+    string,
+    { topic: string; normalizedTopic: string; frequency: TopicFrequency }
+  >();
+
+  for (const row of rows) {
+    if (allowed && !allowed.has(row.frequency)) continue;
+    const existing = byNormalized.get(row.normalizedTopic);
+    if (!existing) {
+      byNormalized.set(row.normalizedTopic, {
+        topic: row.topic,
+        normalizedTopic: row.normalizedTopic,
+        frequency: row.frequency,
+      });
+      continue;
+    }
+    // Prefer a more frequent subscription label when multiple clients differ.
+    const rank = (f: TopicFrequency) =>
+      f === "twice_daily" ? 0 : f === "daily" ? 1 : 2;
+    if (rank(row.frequency) < rank(existing.frequency)) {
+      byNormalized.set(row.normalizedTopic, {
+        topic: row.topic,
+        normalizedTopic: row.normalizedTopic,
+        frequency: row.frequency,
+      });
+    }
+  }
+
+  return [...byNormalized.values()].sort((a, b) =>
+    a.topic.localeCompare(b.topic),
+  );
+}
+
 export function addUserTopic(
   clientId: string,
   input: UserTopicInput,

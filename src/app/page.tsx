@@ -5,6 +5,7 @@ import {
   HistoryLibraryPanel,
   type HistoryLibraryPayload,
 } from "@/components/HistoryLibraryPanel";
+import { DailyBriefingsPanel } from "@/components/DailyBriefingsPanel";
 import { MyTopicsPanel } from "@/components/MyTopicsPanel";
 import { StoryCard } from "@/components/StoryCard";
 import { WhatsNewPanel } from "@/components/WhatsNewPanel";
@@ -337,6 +338,15 @@ export default function HomePage() {
         }}
         onOpenViewed={(story: RecentlyViewedStory) => {
           void loadTopicBriefing(story.topic);
+        }}
+      />
+
+      <DailyBriefingsPanel
+        onOpenTopic={(topic) => {
+          const match = topics.find(
+            (item) => item.topic.toLowerCase() === topic.toLowerCase(),
+          );
+          void loadTopicBriefing(topic, match?.id);
         }}
       />
 
