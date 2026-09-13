@@ -111,10 +111,11 @@ export class GeminiProvider implements LlmProvider {
 
     const data = (await response.json()) as GeminiResponse;
     if (data.error?.message) {
-      throw new AppError(data.error.message, {
+      throw new AppError("AI provider returned an error", {
         statusCode: 502,
         code: "AI_PROVIDER_ERROR",
         details: { provider: this.name, model },
+        cause: data.error.message,
       });
     }
 

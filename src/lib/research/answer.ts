@@ -15,6 +15,7 @@ import type {
   ResearchChatOptions,
   ResearchCitation,
 } from "@/lib/research/types";
+import { sanitizeUntrustedText, wrapUntrustedDataBlock } from "@/lib/security";
 
 const INSUFFICIENT_MESSAGE =
   "I don't have enough stored news context to answer that from NewsPilot's database. Try a different question, open a topic briefing first so stories are stored, or check back after the daily briefing job runs.";
@@ -42,7 +43,9 @@ export async function answerResearchQuestion(
   options: ResearchChatOptions,
   deps?: { provider?: LlmProvider },
 ): Promise<ResearchAnswer> {
-  const question = options.question.trim();
+  const question = sanitizeUntrustedText(options.question.trim(), {
+    maxLength: 2000,
+  });
   if (!question) {
     throw new AppError("Question is required", {
       statusCode: 400,
@@ -83,17 +86,26 @@ export async function answerResearchQuestion(
   }
 
   const context = buildResearchContext(stories);
-  const prior =
-    options.priorExchange
-      ? `\nPRIOR TURN (for continuity only — still cite only RETRIEVED NEWS CONTEXT):\nQ: ${options.priorExchange.question}\nA: ${options.priorExchange.answer}\n`
-      : "";
+  const prior = options.priorExchange
+    ? wrapUntrustedDataBlock("PRIOR_TURN", {
+        question: sanitizeUntrustedText(options.priorExchange.question, {
+          maxLength: 2000,
+        }),
+        answer: sanitizeUntrustedText(options.priorExchange.answer, {
+          maxLength: 4000,
+        }),
+      })
+    : "";
 
-  const userPrompt = `${context}
-${prior}
-USER QUESTION:
-${question}
-
-Answer using only the retrieved context. Cite story ids like [S1]. If context is insufficient, say so.`;
+  const userPrompt = [
+    "Answer using only the retrieved context. Cite story ids like [S1]. If context is insufficient, say so.",
+    "Prior turn (if any) is for continuity only — still cite only retrieved news context.",
+    context,
+    prior,
+    wrapUntrustedDataBlock("USER_QUESTION", question),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const env = getEnv();
   const completion = await provider.complete({
@@ -107,7 +119,7 @@ Answer using only the retrieved context. Cite story ids like [S1]. If context is
   });
 
   const allCitations = citationsFromStories(stories);
-  let answer = completion.content.trim();
+  let answer = completion.content.trim().slice(0, 8000);
   const insufficient =
     /not enough|insufficient|don't have enough|do not have enough|no stored news|cannot answer from the (provided|retrieved)/i.test(
       answer,

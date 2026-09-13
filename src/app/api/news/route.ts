@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { ingestNewsForTopic } from "@/lib/pipeline/ingest";
+import {
+  assertRateLimit,
+  assertTopicLength,
+  clientRateLimitKey,
+} from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -11,7 +16,15 @@ export const runtime = "nodejs";
  */
 export async function GET(request: NextRequest) {
   try {
-    const topic = request.nextUrl.searchParams.get("topic") ?? "";
+    assertRateLimit({
+      key: clientRateLimitKey("news", request),
+      limit: 40,
+      windowMs: 60_000,
+    });
+
+    const topic = assertTopicLength(
+      request.nextUrl.searchParams.get("topic") ?? "",
+    );
     const refresh = request.nextUrl.searchParams.get("refresh");
     const forceRefresh = refresh === "1" || refresh === "true";
 

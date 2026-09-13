@@ -246,6 +246,7 @@ describe("research RAG", () => {
       question: "Compare how different sources reported OpenAI",
     });
     const context = buildResearchContext(stories);
+    expect(context).toContain("<<<UNTRUSTED_RETRIEVED_NEWS_START>>>");
     expect(context).toContain("[S1]");
     expect(context).toContain("sourceDisagreements");
     expect(context).toContain(stored.stories[0].headline);

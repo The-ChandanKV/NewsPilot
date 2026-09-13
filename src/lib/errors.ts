@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 export class AppError extends Error {
   readonly statusCode: number;
   readonly code: string;
@@ -20,6 +22,39 @@ export class AppError extends Error {
   }
 }
 
+const SECRETISH =
+  /\b(api[_-]?key|secret|token|password|authorization|bearer)\b/i;
+
+function scrubClientMessage(message: string): string {
+  if (!SECRETISH.test(message)) return message.slice(0, 300);
+  return "An upstream provider error occurred";
+}
+
+function safeClientDetails(details: unknown): unknown {
+  if (details == null) return undefined;
+  if (typeof details !== "object") return details;
+  const record = details as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (SECRETISH.test(key) || key === "bodyPreview" || key === "body") {
+      continue;
+    }
+    if (typeof value === "string") {
+      safe[key] = value.slice(0, 200);
+    } else if (
+      typeof value === "number" ||
+      typeof value === "boolean" ||
+      value === null
+    ) {
+      safe[key] = value;
+    }
+  }
+  return Object.keys(safe).length > 0 ? safe : undefined;
+}
+
+/**
+ * Convert errors into API responses without leaking secrets or provider bodies.
+ */
 export function toErrorResponse(error: unknown): {
   statusCode: number;
   body: {
@@ -31,26 +66,31 @@ export function toErrorResponse(error: unknown): {
   };
 } {
   if (error instanceof AppError) {
+    const statusCode = error.statusCode;
+    const exposeDetails = statusCode < 500;
     return {
-      statusCode: error.statusCode,
+      statusCode,
       body: {
         error: {
-          message: error.message,
+          message: scrubClientMessage(error.message),
           code: error.code,
-          details: error.details,
+          ...(exposeDetails
+            ? { details: safeClientDetails(error.details) }
+            : {}),
         },
       },
     };
   }
 
-  const message =
-    error instanceof Error ? error.message : "An unexpected error occurred";
+  logger.error("Unhandled error sanitized for client", {
+    error: error instanceof Error ? error.message : String(error),
+  });
 
   return {
     statusCode: 500,
     body: {
       error: {
-        message,
+        message: "An unexpected error occurred",
         code: "INTERNAL_ERROR",
       },
     },

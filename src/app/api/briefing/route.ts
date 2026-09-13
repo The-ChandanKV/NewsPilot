@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { toErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { buildBriefingForTopic } from "@/lib/pipeline/briefing";
+import {
+  assertRateLimit,
+  assertTopicLength,
+  clientRateLimitKey,
+} from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -15,7 +20,15 @@ export const runtime = "nodejs";
  */
 export async function GET(request: NextRequest) {
   try {
-    const topic = request.nextUrl.searchParams.get("topic") ?? "";
+    assertRateLimit({
+      key: clientRateLimitKey("briefing", request),
+      limit: 30,
+      windowMs: 60_000,
+    });
+
+    const topic = assertTopicLength(
+      request.nextUrl.searchParams.get("topic") ?? "",
+    );
     const refresh = request.nextUrl.searchParams.get("refresh");
     const limitRaw = request.nextUrl.searchParams.get("limit");
     const forceRefresh = refresh === "1" || refresh === "true";
@@ -34,7 +47,7 @@ export async function GET(request: NextRequest) {
           { status: 400 },
         );
       }
-      maxStories = parsed;
+      maxStories = Math.min(parsed, 30);
     }
 
     const briefing = await buildBriefingForTopic(topic, {

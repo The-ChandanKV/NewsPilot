@@ -176,7 +176,15 @@ export function getJobRun(jobKey: string) {
 }
 
 export function requireJobSecret(provided: string | null, expected?: string): void {
-  if (!expected) return;
+  if (!expected) {
+    if (process.env.NODE_ENV === "production") {
+      throw new AppError("Job secret is not configured", {
+        statusCode: 503,
+        code: "JOB_SECRET_REQUIRED",
+      });
+    }
+    return;
+  }
   if (!provided || provided !== expected) {
     throw new AppError("Unauthorized daily job request", {
       statusCode: 401,
