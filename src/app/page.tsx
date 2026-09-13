@@ -8,6 +8,7 @@ import {
 import { DailyBriefingsPanel } from "@/components/DailyBriefingsPanel";
 import { EmailDeliveryPanel } from "@/components/EmailDeliveryPanel";
 import { MyTopicsPanel } from "@/components/MyTopicsPanel";
+import { PromptInputBox } from "@/components/PromptInputBox";
 import { StoryCard } from "@/components/StoryCard";
 import { WhatsNewPanel } from "@/components/WhatsNewPanel";
 import type { PersonalizedFeed, UserTopic } from "@/lib/topics/types";
@@ -276,10 +277,19 @@ export default function HomePage() {
           AI News Agent
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--muted)]">
-          Save topics and stories, reopen past briefings, and keep a light
-          history of what you have already read.
+          Save topics and stories, reopen past briefings, and ask research
+          questions grounded in your stored news.
         </p>
       </header>
+
+      <PromptInputBox
+        onOpenTopic={(topic) => {
+          const match = topics.find(
+            (item) => item.topic.toLowerCase() === topic.toLowerCase(),
+          );
+          void loadTopicBriefing(topic, match?.id);
+        }}
+      />
 
       <MyTopicsPanel
         topics={topics}

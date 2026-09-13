@@ -102,6 +102,11 @@ const envSchema = z.object({
       return value;
     }, z.boolean())
     .default(true),
+
+  // AI news research chat (RAG over stored stories — never dump full DB)
+  RESEARCH_MAX_CONTEXT_STORIES: z.coerce.number().int().min(1).max(20).default(8),
+  RESEARCH_MIN_RELEVANCE: z.coerce.number().min(0).max(1).default(0.15),
+  RESEARCH_BRIEFING_SCAN_LIMIT: z.coerce.number().int().min(10).max(200).default(60),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
