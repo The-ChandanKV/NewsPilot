@@ -73,3 +73,69 @@ export const userTopics = sqliteTable(
     ),
   }),
 );
+
+/** Topic search / briefing reopen history (lightweight; no full article bodies). */
+export const searchHistory = sqliteTable(
+  "search_history",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    topic: text("topic").notNull(),
+    normalizedTopic: text("normalized_topic").notNull(),
+    storyCount: integer("story_count").notNull().default(0),
+    lastBriefingAt: text("last_briefing_at"),
+    searchedAt: text("searched_at").notNull(),
+  },
+  (table) => ({
+    clientNormalizedUnique: uniqueIndex("search_history_client_normalized_uid").on(
+      table.clientId,
+      table.normalizedTopic,
+    ),
+  }),
+);
+
+/**
+ * Saved story bookmarks. Stores display fields only — not full article HTML/body.
+ * storyRefId references the cluster/story id when available.
+ */
+export const savedStories = sqliteTable(
+  "saved_stories",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    storyRefId: text("story_ref_id").notNull(),
+    headline: text("headline").notNull(),
+    summary: text("summary").notNull(),
+    source: text("source").notNull(),
+    url: text("url").notNull(),
+    topic: text("topic").notNull(),
+    savedAt: text("saved_at").notNull(),
+  },
+  (table) => ({
+    clientStoryUnique: uniqueIndex("saved_stories_client_ref_uid").on(
+      table.clientId,
+      table.storyRefId,
+    ),
+  }),
+);
+
+/** Recently opened stories — refs + display metadata only. */
+export const recentlyViewedStories = sqliteTable(
+  "recently_viewed_stories",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    storyRefId: text("story_ref_id").notNull(),
+    headline: text("headline").notNull(),
+    source: text("source").notNull(),
+    url: text("url").notNull(),
+    topic: text("topic").notNull(),
+    viewedAt: text("viewed_at").notNull(),
+  },
+  (table) => ({
+    clientStoryUnique: uniqueIndex("recently_viewed_client_ref_uid").on(
+      table.clientId,
+      table.storyRefId,
+    ),
+  }),
+);

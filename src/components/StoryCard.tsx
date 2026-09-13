@@ -7,6 +7,11 @@ import { VerificationBadge } from "@/components/VerificationBadge";
 
 type Props = {
   story: DailyBriefingStory | PersonalizedFeedStory;
+  topicLabel?: string;
+  saved?: boolean;
+  onToggleSave?: () => void;
+  onView?: () => void;
+  saveBusy?: boolean;
 };
 
 function isPersonalized(
@@ -15,18 +20,45 @@ function isPersonalized(
   return "matchedTopic" in story && typeof story.matchedTopic === "string";
 }
 
-export function StoryCard({ story }: Props) {
+export function StoryCard({
+  story,
+  topicLabel,
+  saved,
+  onToggleSave,
+  onView,
+  saveBusy,
+}: Props) {
   const personalized = isPersonalized(story);
+  const topic =
+    topicLabel ||
+    (personalized ? story.matchedTopic : undefined);
 
   return (
-    <article className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5 shadow-lg shadow-black/10">
+    <article
+      className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5 shadow-lg shadow-black/10"
+      onMouseEnter={() => onView?.()}
+      onFocus={() => onView?.()}
+    >
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         {"change" in story && story.change ? (
           <ChangeBadge change={story.change} />
         ) : (
           <span />
         )}
-        <VerificationBadge verification={story.verification} />
+        <div className="flex flex-wrap items-start gap-2">
+          {onToggleSave ? (
+            <button
+              type="button"
+              onClick={onToggleSave}
+              disabled={saveBusy}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs transition hover:bg-white/5 disabled:opacity-50"
+              aria-pressed={saved}
+            >
+              {saved ? "Saved" : "Save"}
+            </button>
+          ) : null}
+          <VerificationBadge verification={story.verification} />
+        </div>
       </div>
 
       {personalized ? (
@@ -35,6 +67,10 @@ export function StoryCard({ story }: Props) {
           {story.alsoInTopics.length > 0
             ? ` · also in ${story.alsoInTopics.join(", ")}`
             : ""}
+        </p>
+      ) : topic ? (
+        <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
+          {topic}
         </p>
       ) : null}
 
@@ -88,6 +124,7 @@ export function StoryCard({ story }: Props) {
           target="_blank"
           rel="noreferrer"
           className="mt-4 inline-block text-sm text-[var(--accent)] underline"
+          onClick={() => onView?.()}
         >
           Read primary source
         </a>

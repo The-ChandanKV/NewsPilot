@@ -70,5 +70,59 @@ export function migrate() {
     ON user_topics (client_id, normalized_topic)
   `);
 
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS search_history (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      normalized_topic TEXT NOT NULL,
+      story_count INTEGER NOT NULL DEFAULT 0,
+      last_briefing_at TEXT,
+      searched_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS search_history_client_normalized_uid
+    ON search_history (client_id, normalized_topic)
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS saved_stories (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      story_ref_id TEXT NOT NULL,
+      headline TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      source TEXT NOT NULL,
+      url TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      saved_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS saved_stories_client_ref_uid
+    ON saved_stories (client_id, story_ref_id)
+  `);
+
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS recently_viewed_stories (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      story_ref_id TEXT NOT NULL,
+      headline TEXT NOT NULL,
+      source TEXT NOT NULL,
+      url TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      viewed_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS recently_viewed_client_ref_uid
+    ON recently_viewed_stories (client_id, story_ref_id)
+  `);
+
   logger.info("Database schema ensured");
 }

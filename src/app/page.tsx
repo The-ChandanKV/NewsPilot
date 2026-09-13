@@ -1,16 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  HistoryLibraryPanel,
+  type HistoryLibraryPayload,
+} from "@/components/HistoryLibraryPanel";
 import { MyTopicsPanel } from "@/components/MyTopicsPanel";
 import { StoryCard } from "@/components/StoryCard";
 import { WhatsNewPanel } from "@/components/WhatsNewPanel";
 import type { PersonalizedFeed, UserTopic } from "@/lib/topics/types";
-import type { DailyBriefing } from "@/types/briefing";
+import type { DailyBriefing, DailyBriefingStory } from "@/types/briefing";
+import type { PersonalizedFeedStory } from "@/lib/topics/types";
+import type {
+  RecentlyViewedStory,
+  SavedStory,
+} from "@/lib/history/types";
 
 type ViewMode =
   | { kind: "idle" }
   | { kind: "feed" }
-  | { kind: "topic"; topic: UserTopic };
+  | { kind: "topic"; topic: string; topicId?: string }
+  | { kind: "saved"; story: SavedStory };
 
 export default function HomePage() {
   const [topics, setTopics] = useState<UserTopic[]>([]);
@@ -20,6 +30,12 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [briefing, setBriefing] = useState<DailyBriefing | null>(null);
   const [feed, setFeed] = useState<PersonalizedFeed | null>(null);
+  const [history, setHistory] = useState<HistoryLibraryPayload | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [savedRefIds, setSavedRefIds] = useState<Set<string>>(new Set());
+  const [saveBusyId, setSaveBusyId] = useState<string | null>(null);
+  const viewedRefs = useRef<Set<string>>(new Set());
 
   const loadTopics = useCallback(async () => {
     setTopicsLoading(true);
@@ -37,24 +53,63 @@ export default function HomePage() {
     }
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await fetch("/api/history");
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Failed to load history");
+      }
+      const library = payload as HistoryLibraryPayload;
+      setHistory(library);
+      setSavedRefIds(new Set(library.savedStories.map((s) => s.storyRefId)));
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadTopics();
-  }, [loadTopics]);
+    void loadHistory();
+  }, [loadTopics, loadHistory]);
 
-  async function loadTopicBriefing(topic: UserTopic) {
-    setView({ kind: "topic", topic });
+  async function recordSearch(topic: string, briefing: DailyBriefing) {
+    try {
+      await fetch("/api/history/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic,
+          storyCount: briefing.totalStories,
+          briefingAt: briefing.generatedAt,
+        }),
+      });
+      void loadHistory();
+    } catch {
+      // Non-fatal — briefing still shows.
+    }
+  }
+
+  async function loadTopicBriefing(topic: string, topicId?: string) {
+    setView({ kind: "topic", topic, topicId });
     setLoading(true);
     setError(null);
     setFeed(null);
     try {
       const response = await fetch(
-        `/api/briefing?topic=${encodeURIComponent(topic.topic)}`,
+        `/api/briefing?topic=${encodeURIComponent(topic)}`,
       );
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error?.message ?? "Failed to load briefing");
       }
-      setBriefing(payload as DailyBriefing);
+      const next = payload as DailyBriefing;
+      setBriefing(next);
+      await recordSearch(topic, next);
     } catch (err) {
       setBriefing(null);
       setError(err instanceof Error ? err.message : String(err));
@@ -83,12 +138,135 @@ export default function HomePage() {
     }
   }
 
+  async function toggleSave(
+    story: DailyBriefingStory | PersonalizedFeedStory,
+    topic: string,
+  ) {
+    const refId = story.id;
+    setSaveBusyId(refId);
+    try {
+      if (savedRefIds.has(refId)) {
+        const response = await fetch(
+          `/api/saved-stories/${encodeURIComponent(refId)}?byRef=1`,
+          { method: "DELETE" },
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error?.message ?? "Failed to unsave story");
+        }
+        setSavedRefIds((prev) => {
+          const next = new Set(prev);
+          next.delete(refId);
+          return next;
+        });
+      } else {
+        const response = await fetch("/api/saved-stories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storyRefId: refId,
+            headline: story.headline,
+            summary: story.summary,
+            source: story.primarySource,
+            url: story.articleUrls[0] ?? "",
+            topic,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload?.error?.message ?? "Failed to save story");
+        }
+        setSavedRefIds((prev) => new Set(prev).add(refId));
+      }
+      void loadHistory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaveBusyId(null);
+    }
+  }
+
+  async function markViewed(
+    story: DailyBriefingStory | PersonalizedFeedStory,
+    topic: string,
+  ) {
+    if (viewedRefs.current.has(story.id)) return;
+    viewedRefs.current.add(story.id);
+    try {
+      await fetch("/api/history/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storyRefId: story.id,
+          headline: story.headline,
+          source: story.primarySource,
+          url: story.articleUrls[0] ?? "",
+          topic,
+        }),
+      });
+    } catch {
+      viewedRefs.current.delete(story.id);
+    }
+  }
+
+  async function clearHistory() {
+    setHistoryError(null);
+    try {
+      const response = await fetch("/api/history", { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Failed to clear history");
+      }
+      viewedRefs.current.clear();
+      await loadHistory();
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function unsaveById(savedId: string) {
+    try {
+      const response = await fetch(`/api/saved-stories/${savedId}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "Failed to unsave story");
+      }
+      await loadHistory();
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   const selectedTopicId =
-    view.kind === "topic" ? view.topic.id : view.kind === "feed" ? "__feed__" : null;
+    view.kind === "topic"
+      ? view.topicId ?? null
+      : view.kind === "feed"
+        ? "__feed__"
+        : null;
+
+  function storyCardProps(
+    story: DailyBriefingStory | PersonalizedFeedStory,
+    topic: string,
+  ) {
+    return {
+      story,
+      topicLabel: topic,
+      saved: savedRefIds.has(story.id),
+      saveBusy: saveBusyId === story.id,
+      onToggleSave: () => {
+        void toggleSave(story, topic);
+      },
+      onView: () => {
+        void markViewed(story, topic);
+      },
+    };
+  }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-6 py-16">
-      <header className="mb-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-16">
+      <header>
         <p className="mb-2 text-sm uppercase tracking-[0.2em] text-[var(--muted)]">
           NewsPilot
         </p>
@@ -96,9 +274,8 @@ export default function HomePage() {
           AI News Agent
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--muted)]">
-          Save the topics you care about, open a dedicated briefing for any one
-          of them, or read a combined personalized feed ranked by relevance and
-          your priorities.
+          Save topics and stories, reopen past briefings, and keep a light
+          history of what you have already read.
         </p>
       </header>
 
@@ -109,12 +286,15 @@ export default function HomePage() {
         }
         loading={topicsLoading || loading}
         onSelectTopic={(topic) => {
-          void loadTopicBriefing(topic);
+          void loadTopicBriefing(topic.topic, topic.id);
         }}
         onSelectFeed={() => {
           void loadPersonalizedFeed();
         }}
-        onAdded={(topic) => setTopics((prev) => [...prev, topic])}
+        onAdded={(topic) => {
+          setTopics((prev) => [...prev, topic]);
+          void loadHistory();
+        }}
         onUpdated={(topic) =>
           setTopics((prev) =>
             prev.map((item) => (item.id === topic.id ? topic : item)),
@@ -122,7 +302,8 @@ export default function HomePage() {
         }
         onRemoved={(topicId) => {
           setTopics((prev) => prev.filter((item) => item.id !== topicId));
-          if (view.kind === "topic" && view.topic.id === topicId) {
+          void loadHistory();
+          if (view.kind === "topic" && view.topicId === topicId) {
             setView({ kind: "idle" });
             setBriefing(null);
           }
@@ -130,18 +311,47 @@ export default function HomePage() {
         onReordered={setTopics}
       />
 
+      <HistoryLibraryPanel
+        library={history}
+        loading={historyLoading}
+        error={historyError}
+        onRefresh={() => {
+          void loadHistory();
+        }}
+        onClearHistory={() => {
+          void clearHistory();
+        }}
+        onReopenTopic={(topic) => {
+          const match = topics.find(
+            (item) => item.topic.toLowerCase() === topic.toLowerCase(),
+          );
+          void loadTopicBriefing(topic, match?.id);
+        }}
+        onUnsave={(id) => {
+          void unsaveById(id);
+        }}
+        onOpenSaved={(story: SavedStory) => {
+          setView({ kind: "saved", story });
+          setBriefing(null);
+          setFeed(null);
+        }}
+        onOpenViewed={(story: RecentlyViewedStory) => {
+          void loadTopicBriefing(story.topic);
+        }}
+      />
+
       {error ? (
-        <p className="mt-6 text-sm text-amber-200" role="alert">
+        <p className="text-sm text-amber-200" role="alert">
           {error}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="mt-8 text-sm text-[var(--muted)]">Loading stories…</p>
+        <p className="text-sm text-[var(--muted)]">Loading stories…</p>
       ) : null}
 
       {!loading && view.kind === "feed" && feed ? (
-        <section className="mt-10 space-y-4">
+        <section className="space-y-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
               Personalized feed
@@ -149,16 +359,15 @@ export default function HomePage() {
             <p className="mt-1 text-sm text-[var(--muted)]">
               {feed.totalStories} stor
               {feed.totalStories === 1 ? "y" : "ies"} across {feed.topics.length}{" "}
-              topic{feed.topics.length === 1 ? "" : "s"} · reused existing
-              summaries
-              {feed.summaryCacheHits > 0
-                ? ` · ${feed.summaryCacheHits} cache hit${feed.summaryCacheHits === 1 ? "" : "s"}`
-                : ""}
+              topic{feed.topics.length === 1 ? "" : "s"}
             </p>
           </div>
 
           {feed.stories.map((story) => (
-            <StoryCard key={`${story.matchedTopicId}-${story.id}`} story={story} />
+            <StoryCard
+              key={`${story.matchedTopicId}-${story.id}`}
+              {...storyCardProps(story, story.matchedTopic)}
+            />
           ))}
 
           {feed.stories.length === 0 ? (
@@ -170,10 +379,10 @@ export default function HomePage() {
       ) : null}
 
       {!loading && view.kind === "topic" && briefing ? (
-        <section className="mt-10 space-y-4">
+        <section className="space-y-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
-              {view.topic.topic}
+              {view.topic}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               {briefing.totalStories} stor
@@ -188,7 +397,10 @@ export default function HomePage() {
           ) : null}
 
           {briefing.stories.map((story) => (
-            <StoryCard key={story.id} story={story} />
+            <StoryCard
+              key={story.id}
+              {...storyCardProps(story, view.topic)}
+            />
           ))}
 
           {briefing.stories.length === 0 ? (
@@ -199,9 +411,50 @@ export default function HomePage() {
         </section>
       ) : null}
 
+      {!loading && view.kind === "saved" ? (
+        <section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
+            Saved story · {view.story.topic}
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {view.story.headline}
+          </h2>
+          <p className="text-sm text-[var(--muted)]">{view.story.source}</p>
+          <p className="text-sm leading-relaxed">{view.story.summary}</p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <a
+              href={view.story.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--accent)] underline"
+            >
+              Open source
+            </a>
+            <button
+              type="button"
+              className="text-[var(--muted)]"
+              onClick={() => void loadTopicBriefing(view.story.topic)}
+            >
+              Reopen topic briefing
+            </button>
+            <button
+              type="button"
+              className="text-amber-200"
+              onClick={() => void unsaveById(view.story.id)}
+            >
+              Unsave
+            </button>
+          </div>
+          <p className="text-xs text-[var(--muted)]">
+            Saved {new Date(view.story.savedAt).toLocaleString()}
+          </p>
+        </section>
+      ) : null}
+
       {!loading && view.kind === "idle" && topics.length > 0 ? (
-        <p className="mt-10 text-sm text-[var(--muted)]">
-          Choose a topic above or open your personalized feed.
+        <p className="text-sm text-[var(--muted)]">
+          Choose a topic above, open your personalized feed, or reopen something
+          from history.
         </p>
       ) : null}
     </main>
