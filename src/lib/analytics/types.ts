@@ -1,0 +1,81 @@
+export type PipelineAnalyticsEventKind =
+  | "news_provider_failure"
+  | "ai_request_failure"
+  | "ai_request_retry";
+
+export type PipelineAnalyticsEvent = {
+  id: string;
+  kind: PipelineAnalyticsEventKind;
+  createdAt: string;
+  topic: string | null;
+  provider: string | null;
+  code: string | null;
+  detail: string | null;
+  meta: Record<string, unknown>;
+};
+
+export type PipelineAnalyticsDayTrend = {
+  date: string;
+  articlesRetrieved: number;
+  duplicateArticlesRemoved: number;
+  duplicateRate: number;
+  storiesGenerated: number;
+  aiCalls: number;
+  aiCacheHits: number;
+  aiCacheHitRate: number;
+  averageBriefingGenerationMs: number;
+  averageSourcesPerStory: number;
+  apiFailures: number;
+  failedAiRequests: number;
+  briefingCount: number;
+};
+
+export type PipelineTopicStats = {
+  topic: string;
+  articlesRetrieved: number;
+  storiesGenerated: number;
+  aiCalls: number;
+  briefingCount: number;
+  averageSourcesPerStory: number;
+};
+
+export type PipelineProviderFailureStat = {
+  provider: string;
+  kind: "news" | "ai";
+  count: number;
+  lastCode: string | null;
+};
+
+export type PipelineAnalyticsSnapshot = {
+  generatedAt: string;
+  windowDays: number;
+  windowFrom: string;
+  windowTo: string;
+  totals: {
+    articlesRetrieved: number;
+    duplicateArticlesRemoved: number;
+    duplicateRate: number;
+    storiesGenerated: number;
+    averageSourcesPerStory: number;
+    aiCalls: number;
+    aiCacheHits: number;
+    aiCacheHitRate: number;
+    failedAiRequests: number;
+    averageBriefingGenerationMs: number;
+    apiFailures: number;
+    briefingCount: number;
+    jobRunsCompleted: number;
+    jobRunsFailed: number;
+    jobTopicsFailed: number;
+  };
+  trends: PipelineAnalyticsDayTrend[];
+  articlesPerTopic: PipelineTopicStats[];
+  mostCoveredTopics: Array<{
+    topic: string;
+    storiesGenerated: number;
+    briefingCount: number;
+    articlesRetrieved: number;
+  }>;
+  failedProviders: PipelineProviderFailureStat[];
+  insights: string[];
+};

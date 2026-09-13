@@ -2,6 +2,7 @@ import { getEnv } from "@/config/env";
 import { summaryCache } from "@/lib/cache/memory";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import {
   buildSummarizationInput,
   buildSummarizerUserPrompt,
@@ -43,6 +44,7 @@ async function completeWithValidation(
   userPrompt: string,
   maxTokens: number,
   maxAttempts: number,
+  context?: { topic?: string; storyId?: string },
 ): Promise<{ payload: StorySummaryPayload; model: string }> {
   let lastError: unknown;
 
@@ -67,6 +69,7 @@ async function completeWithValidation(
       return { payload, model: completion.model };
     } catch (error) {
       lastError = error;
+      const code = error instanceof AppError ? error.code : "AI_SUMMARY_ATTEMPT_FAILED";
       const retryable =
         error instanceof AppError
           ? ["AI_RATE_LIMITED", "AI_PROVIDER_TIMEOUT", "AI_PROVIDER_NETWORK_ERROR", "AI_PROVIDER_HTTP_ERROR"].includes(
@@ -78,6 +81,18 @@ async function completeWithValidation(
         attempt: attempt + 1,
         error: error instanceof Error ? error.message : String(error),
         retryable,
+      });
+
+      recordAnalyticsEvent({
+        kind: attempt >= maxAttempts - 1 || !retryable ? "ai_request_failure" : "ai_request_retry",
+        topic: context?.topic,
+        provider: provider.name,
+        code,
+        detail: error instanceof Error ? error.message : String(error),
+        meta: {
+          attempt: attempt + 1,
+          storyId: context?.storyId ?? null,
+        },
       });
 
       if (!retryable || attempt >= maxAttempts - 1) {
@@ -185,6 +200,7 @@ export async function summarizeStoryCluster(
       userPrompt,
       env.AI_MAX_OUTPUT_TOKENS,
       Math.max(1, env.AI_PROVIDER_MAX_RETRIES + 1),
+      { topic, storyId: cluster.id },
     );
 
     const summary: StorySummary = {

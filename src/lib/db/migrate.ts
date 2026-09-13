@@ -232,5 +232,28 @@ export function migrate() {
     ON email_deliveries (subscription_id, briefing_id)
   `);
 
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS pipeline_analytics_events (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      topic TEXT,
+      provider TEXT,
+      code TEXT,
+      detail TEXT,
+      meta_json TEXT NOT NULL DEFAULT '{}'
+    )
+  `);
+
+  db.run(sql`
+    CREATE INDEX IF NOT EXISTS pipeline_analytics_events_created_idx
+    ON pipeline_analytics_events (created_at)
+  `);
+
+  db.run(sql`
+    CREATE INDEX IF NOT EXISTS pipeline_analytics_events_kind_idx
+    ON pipeline_analytics_events (kind)
+  `);
+
   logger.info("Database schema ensured");
 }

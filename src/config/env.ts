@@ -79,6 +79,8 @@ const envSchema = z.object({
   DAILY_BRIEFING_FREQUENCIES: z.string().default("daily,twice_daily"),
   /** Optional shared secret for POST /api/jobs/daily-briefings */
   DAILY_JOB_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** Optional shared secret for /admin analytics (falls back to DAILY_JOB_SECRET). */
+  ADMIN_ANALYTICS_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
 
   // Daily news email delivery (reuses StoredDailyBriefing — no extra LLM calls)
   /** log = stdout only; resend = Resend HTTP API */

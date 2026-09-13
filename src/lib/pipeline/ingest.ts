@@ -2,6 +2,7 @@ import { getEnv, getEnabledNewsProviders } from "@/config/env";
 import { newsFetchCache } from "@/lib/cache/memory";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { toNewsArticleDto } from "@/lib/pipeline/dto";
 import { getEnabledNewsProviderInstances, getNewsProvider } from "@/lib/providers/news/aggregator";
 import type { NewsSearchOptions } from "@/lib/providers/news/types";
@@ -167,6 +168,13 @@ export async function fetchRawArticlesForTopic(
           provider: provider.name,
           code,
           message,
+        });
+        recordAnalyticsEvent({
+          kind: "news_provider_failure",
+          topic,
+          provider: provider.name,
+          code,
+          detail: message,
         });
         providersFailed.push({ provider: provider.name, code, message });
       }

@@ -270,3 +270,19 @@ export const emailDeliveries = sqliteTable(
     ),
   }),
 );
+
+/**
+ * Append-only pipeline analytics events (admin/dev).
+ * No API keys, emails, or client identifiers.
+ */
+export const pipelineAnalyticsEvents = sqliteTable("pipeline_analytics_events", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  createdAt: text("created_at").notNull(),
+  topic: text("topic"),
+  provider: text("provider"),
+  code: text("code"),
+  /** Safe operational detail only — never secrets or PII. */
+  detail: text("detail"),
+  metaJson: text("meta_json").notNull().default("{}"),
+});
