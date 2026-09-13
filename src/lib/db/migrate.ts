@@ -281,5 +281,26 @@ export function migrate() {
     ON summary_evaluations (run_id)
   `);
 
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS summary_cache (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    )
+  `);
+
+  db.run(sql`
+    CREATE INDEX IF NOT EXISTS summary_cache_provider_hash_idx
+    ON summary_cache (provider, content_hash)
+  `);
+
+  db.run(sql`
+    CREATE INDEX IF NOT EXISTS summary_cache_expires_idx
+    ON summary_cache (expires_at)
+  `);
+
   logger.info("Database schema ensured");
 }

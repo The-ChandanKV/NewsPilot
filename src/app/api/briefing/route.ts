@@ -15,7 +15,8 @@ export const runtime = "nodejs";
  *
  * Daily news briefing for a topic.
  * Optional query params:
- * - refresh=1 — bypass briefing/news/summary caches
+ * - refresh=1 — bypass briefing + news caches (still reuses valid AI summaries)
+ * - refreshAi=1 — also bypass AI summary caches (expensive)
  * - limit=N — max stories (capped by server config)
  */
 export async function GET(request: NextRequest) {
@@ -30,8 +31,10 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("topic") ?? "",
     );
     const refresh = request.nextUrl.searchParams.get("refresh");
+    const refreshAi = request.nextUrl.searchParams.get("refreshAi");
     const limitRaw = request.nextUrl.searchParams.get("limit");
     const forceRefresh = refresh === "1" || refresh === "true";
+    const forceAiRefresh = refreshAi === "1" || refreshAi === "true";
 
     let maxStories: number | undefined;
     if (limitRaw) {
@@ -52,6 +55,7 @@ export async function GET(request: NextRequest) {
 
     const briefing = await buildBriefingForTopic(topic, {
       forceRefresh,
+      forceAiRefresh,
       maxStories,
     });
 

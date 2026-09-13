@@ -127,7 +127,10 @@ export async function generateDailyBriefingForTopic(
   let storyClustersCreated = 0;
 
   const briefingOptions: BuildBriefingOptions = {
+    // Refresh news/briefing assembly for the daily snapshot, but reuse valid
+    // AI summaries whenever content hashes still match (cost control).
     forceRefresh: true,
+    forceAiRefresh: false,
     now,
     processNews: async (topicName, processOptions) => {
       const processed = await processNews(topicName, processOptions);

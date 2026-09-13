@@ -55,8 +55,10 @@ export default function AdminAnalyticsPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
             Internal view of news retrieval, dedupe, AI usage, and provider
-            failures. Calculations run server-side; this page only renders
-            results. No API keys or personal data are shown.
+            failures — plus live development metrics for AI calls, cache hits,
+            and processing time under limited Gemini/Claude quota. Calculations
+            run server-side; this page only renders results. No API keys or
+            personal data are shown.
           </p>
         </div>
         <a href="/" className="text-sm text-[var(--accent)] underline">

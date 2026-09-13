@@ -12,19 +12,25 @@ import {
 } from "@/lib/topics/ranking";
 import { listUserTopics } from "@/lib/topics/store";
 import type { PersonalizedFeed, UserTopic } from "@/lib/topics/types";
+import { mapWithConcurrency } from "@/lib/utils/concurrency";
 
 export type BuildPersonalizedFeedOptions = {
   maxStories?: number;
   storiesPerTopic?: number;
   forceRefresh?: boolean;
+  forceAiRefresh?: boolean;
   now?: Date;
   buildBriefing?: typeof buildBriefingForTopic;
-  briefingOptions?: Omit<BuildBriefingOptions, "maxStories" | "forceRefresh" | "now">;
+  briefingOptions?: Omit<
+    BuildBriefingOptions,
+    "maxStories" | "forceRefresh" | "forceAiRefresh" | "now"
+  >;
 };
 
 /**
  * Combined personalized feed across saved topics.
  * Reuses per-topic briefing/summaries — does NOT create a separate AI pass.
+ * Topics are processed with limited concurrency to avoid news/AI stampedes.
  */
 export async function buildPersonalizedFeed(
   clientId: string,
@@ -46,18 +52,22 @@ export async function buildPersonalizedFeed(
     options.storiesPerTopic ??
     Math.max(3, Math.ceil(maxStories / Math.max(1, topics.length)));
   const buildBriefing = options.buildBriefing ?? buildBriefingForTopic;
+  const concurrency = Math.min(2, topics.length);
 
   const warnings: string[] = [];
   let llmCalls = 0;
   let summaryCacheHits = 0;
 
-  const topicBriefings = await Promise.all(
-    topics.map(async (topic) => {
+  const topicBriefings = await mapWithConcurrency(
+    topics,
+    concurrency,
+    async (topic) => {
       try {
         const briefing = await buildBriefing(topic.topic, {
           ...options.briefingOptions,
           maxStories: storiesPerTopic,
           forceRefresh: options.forceRefresh,
+          forceAiRefresh: options.forceAiRefresh,
           now,
         });
         llmCalls += briefing.llmCalls;
@@ -73,7 +83,7 @@ export async function buildPersonalizedFeed(
         });
         return { topic, briefing: null };
       }
-    }),
+    },
   );
 
   const candidates = topicBriefings.flatMap(({ topic, briefing }) => {

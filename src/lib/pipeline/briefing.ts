@@ -3,6 +3,10 @@ import { briefingCache } from "@/lib/cache/memory";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import {
+  recordBriefingCacheHit,
+  recordBriefingRun,
+} from "@/lib/metrics/runtime";
+import {
   assessClusterChange,
   buildWhatsNewSummary,
   clusterArticleUrls,
@@ -42,7 +46,13 @@ export type BuildBriefingOptions = {
   maxResults?: number;
   maxStories?: number;
   recencyHours?: number;
+  /**
+   * Bypass briefing + news request caches (refresh retrieval).
+   * Does NOT bypass AI summary caches — use forceAiRefresh for that.
+   */
   forceRefresh?: boolean;
+  /** Bypass memory + durable summary caches (expensive; rare). */
+  forceAiRefresh?: boolean;
   provider?: LlmProvider;
   now?: Date;
   /** Test seams — avoid live network/AI in unit tests. */
@@ -63,6 +73,7 @@ export type BuildBriefingOptions = {
       provider?: LlmProvider;
       maxStories?: number;
       forceRefresh?: boolean;
+      forceAiRefresh?: boolean;
       reuseByClusterId?: Map<string, StorySummary>;
     },
   ) => Promise<SummarizeResult>;
@@ -151,6 +162,7 @@ export async function buildBriefingForTopic(
 
   const env = getEnv();
   const now = options.now ?? new Date();
+  const startedAt = Date.now();
   const recencyHours = options.recencyHours ?? env.NEWS_RECENCY_HOURS;
   const maxStories =
     options.maxStories ??
@@ -160,6 +172,8 @@ export async function buildBriefingForTopic(
   const summarize = options.summarize ?? summarizeStoryClusters;
   const loadSnapshot = options.loadSnapshot ?? loadTopicSnapshot;
   const persistSnapshot = options.persistSnapshot !== false;
+  const forceNewsRefresh = options.forceRefresh === true;
+  const forceAiRefresh = options.forceAiRefresh === true;
 
   const cacheKey = briefingCacheKey({
     topic,
@@ -168,10 +182,21 @@ export async function buildBriefingForTopic(
     provider: provider.name,
   });
 
-  if (!options.forceRefresh) {
+  if (!forceNewsRefresh) {
     const cached = briefingCache.get<DailyBriefing>(cacheKey);
     if (cached) {
       logger.info("Briefing cache hit", { topic: normalizeTopic(topic) });
+      recordBriefingCacheHit();
+      recordBriefingRun({
+        topic: normalizeTopic(topic),
+        durationMs: Date.now() - startedAt,
+        aiCalls: 0,
+        cacheHits: 1,
+        articlesProcessed: 0,
+        duplicateArticlesRemoved: 0,
+        storiesGenerated: cached.totalStories,
+        fromBriefingCache: true,
+      });
       return { ...cached, cached: true };
     }
   }
@@ -183,7 +208,7 @@ export async function buildBriefingForTopic(
     maxResults: options.maxResults,
     maxStories: Math.max(maxStories * 2, maxStories),
     recencyHours,
-    forceRefresh: options.forceRefresh,
+    forceRefresh: forceNewsRefresh,
     now,
   });
 
@@ -214,6 +239,20 @@ export async function buildBriefingForTopic(
       warnings: [...warnings, "No stories found for this topic in the time range."],
     };
     briefingCache.set(cacheKey, empty, env.BRIEFING_CACHE_TTL_SECONDS);
+    const dupes =
+      processed.dedupeStats.exactUrlDuplicatesRemoved +
+      processed.dedupeStats.nearDuplicatesRemoved +
+      processed.dedupeStats.duplicateArticlesCollapsed;
+    recordBriefingRun({
+      topic: normalizeTopic(topic),
+      durationMs: Date.now() - startedAt,
+      aiCalls: 0,
+      cacheHits: 0,
+      articlesProcessed: processed.dedupeStats.inputCount,
+      duplicateArticlesRemoved: dupes,
+      storiesGenerated: 0,
+      fromBriefingCache: false,
+    });
     return empty;
   }
 
@@ -230,7 +269,7 @@ export async function buildBriefingForTopic(
   const summarized = await summarize(candidates, processed.topic, {
     provider,
     maxStories,
-    forceRefresh: options.forceRefresh,
+    forceAiRefresh,
     reuseByClusterId,
   });
 
@@ -310,6 +349,22 @@ export async function buildBriefingForTopic(
     saveBriefingAsTopicSnapshot(briefing, summariesByStoryId);
   }
 
+  const dupesRemoved =
+    processed.dedupeStats.exactUrlDuplicatesRemoved +
+    processed.dedupeStats.nearDuplicatesRemoved +
+    processed.dedupeStats.duplicateArticlesCollapsed;
+
+  recordBriefingRun({
+    topic: normalizeTopic(topic),
+    durationMs: Date.now() - startedAt,
+    aiCalls: briefing.llmCalls,
+    cacheHits: briefing.summaryCacheHits,
+    articlesProcessed: processed.dedupeStats.inputCount,
+    duplicateArticlesRemoved: dupesRemoved,
+    storiesGenerated: briefing.totalStories,
+    fromBriefingCache: false,
+  });
+
   logger.info("Daily briefing generated", {
     topic: normalizeTopic(topic),
     totalStories: briefing.totalStories,
@@ -319,6 +374,7 @@ export async function buildBriefingForTopic(
     updatedCount: whatsNew.updatedCount,
     ongoingCount: whatsNew.ongoingCount,
     warnings: warnings.length,
+    durationMs: Date.now() - startedAt,
   });
 
   return briefing;

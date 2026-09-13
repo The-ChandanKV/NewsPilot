@@ -101,7 +101,7 @@ export class GeminiProvider implements LlmProvider {
     const response = await fetchWithRetry(url, {
       method: "POST",
       timeoutMs: env.AI_PROVIDER_TIMEOUT_MS,
-      maxRetries: env.AI_PROVIDER_MAX_RETRIES,
+      maxRetries: request.maxRetries ?? env.AI_PROVIDER_MAX_RETRIES,
       errorNamespace: "ai",
       headers: {
         "Content-Type": "application/json",

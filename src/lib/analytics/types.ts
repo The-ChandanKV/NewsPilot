@@ -83,6 +83,43 @@ export type PipelineAnalyticsSnapshot = {
    */
   alerts: PipelineAnalyticsAlert[];
   insights: string[];
+  /**
+   * Live process metrics for this Node server (dev cost/perf view).
+   * Resets on process restart; complements durable daily-job totals.
+   */
+  developmentMetrics: DevelopmentPipelineMetrics;
+};
+
+export type DevelopmentPipelineMetrics = {
+  aiCalls: number;
+  cacheHits: number;
+  articlesProcessed: number;
+  duplicateArticlesRemoved: number;
+  storiesGenerated: number;
+  averageProcessingTimeMs: number;
+  briefingRuns: number;
+  summaryCacheHits: number;
+  newsCacheHits: number;
+  briefingCacheHits: number;
+  durableSummaryHits: number;
+  durableSummariesStored: number;
+  aiDedupedCalls: number;
+  memoryCaches: {
+    news: { hits: number; misses: number; hitRate: number; size: number };
+    summary: { hits: number; misses: number; hitRate: number; size: number };
+    briefing: { hits: number; misses: number; hitRate: number; size: number };
+  };
+  recentRuns: Array<{
+    at: string;
+    topic: string;
+    durationMs: number;
+    aiCalls: number;
+    cacheHits: number;
+    articlesProcessed: number;
+    duplicateArticlesRemoved: number;
+    storiesGenerated: number;
+    fromBriefingCache: boolean;
+  }>;
 };
 
 export type PipelineAnalyticsAlertKind =

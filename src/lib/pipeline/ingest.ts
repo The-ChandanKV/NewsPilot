@@ -3,6 +3,7 @@ import { newsFetchCache } from "@/lib/cache/memory";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { recordAnalyticsEvent } from "@/lib/analytics/events";
+import { recordNewsCacheHit } from "@/lib/metrics/runtime";
 import { toNewsArticleDto } from "@/lib/pipeline/dto";
 import { getEnabledNewsProviderInstances, getNewsProvider } from "@/lib/providers/news/aggregator";
 import type { NewsSearchOptions } from "@/lib/providers/news/types";
@@ -115,6 +116,7 @@ export async function fetchRawArticlesForTopic(
     const cached = newsFetchCache.get<CachedRaw>(key);
     if (cached) {
       logger.info("News cache hit", { topic: normalized, count: cached.articles.length });
+      recordNewsCacheHit();
       return { ...cached, cached: true };
     }
   }

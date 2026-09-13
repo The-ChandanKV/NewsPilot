@@ -206,6 +206,17 @@ describe("pipeline analytics", () => {
     expect(snapshot.alerts.some((alert) => alert.kind === "failed_providers")).toBe(
       true,
     );
+    expect(snapshot.developmentMetrics).toBeDefined();
+    expect(snapshot.developmentMetrics.aiCalls).toBeGreaterThanOrEqual(0);
+    expect(snapshot.developmentMetrics).toHaveProperty("cacheHits");
+    expect(snapshot.developmentMetrics).toHaveProperty("articlesProcessed");
+    expect(snapshot.developmentMetrics).toHaveProperty(
+      "duplicateArticlesRemoved",
+    );
+    expect(snapshot.developmentMetrics).toHaveProperty("storiesGenerated");
+    expect(snapshot.developmentMetrics).toHaveProperty(
+      "averageProcessingTimeMs",
+    );
     expect(JSON.stringify(snapshot)).not.toMatch(/api_key|sk-/i);
   });
 

@@ -82,6 +82,7 @@ type Props = {
  */
 export function PipelineAnalyticsDashboard({ data }: Props) {
   const totals = data.totals;
+  const live = data.developmentMetrics;
 
   return (
     <div className="space-y-6">
@@ -89,6 +90,80 @@ export function PipelineAnalyticsDashboard({ data }: Props) {
         Window {data.windowFrom} → {data.windowTo} · generated{" "}
         {new Date(data.generatedAt).toLocaleString()}
       </p>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5">
+        <h2 className="text-lg font-semibold">Development metrics (this process)</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Live cost/perf counters since server start. Prefer cache hits over AI
+          calls under limited Gemini/Claude quota.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <MetricCard label="AI calls" value={String(live.aiCalls)} />
+          <MetricCard
+            label="Cache hits"
+            value={String(live.cacheHits)}
+            hint={`${live.summaryCacheHits} summary · ${live.newsCacheHits} news · ${live.briefingCacheHits} briefing`}
+          />
+          <MetricCard
+            label="Articles processed"
+            value={String(live.articlesProcessed)}
+          />
+          <MetricCard
+            label="Duplicate articles removed"
+            value={String(live.duplicateArticlesRemoved)}
+          />
+          <MetricCard
+            label="Stories generated"
+            value={String(live.storiesGenerated)}
+          />
+          <MetricCard
+            label="Average processing time"
+            value={ms(live.averageProcessingTimeMs)}
+            hint={`${live.briefingRuns} briefing run(s)`}
+          />
+        </div>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Durable summaries stored: {live.durableSummariesStored} · durable hits:{" "}
+          {live.durableSummaryHits} · AI calls deduped: {live.aiDedupedCalls} ·
+          memory hit rates — news {(live.memoryCaches.news.hitRate * 100).toFixed(0)}
+          %, summary {(live.memoryCaches.summary.hitRate * 100).toFixed(0)}%, briefing{" "}
+          {(live.memoryCaches.briefing.hitRate * 100).toFixed(0)}%
+        </p>
+        {live.recentRuns.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                <tr>
+                  <th className="py-2">When</th>
+                  <th>Topic</th>
+                  <th>AI</th>
+                  <th>Cache</th>
+                  <th>Articles</th>
+                  <th>Dupes</th>
+                  <th>Stories</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {live.recentRuns.slice(0, 12).map((run) => (
+                  <tr key={`${run.at}-${run.topic}`} className="border-t border-[var(--border)]">
+                    <td className="py-2 text-[var(--muted)]">
+                      {new Date(run.at).toLocaleTimeString()}
+                    </td>
+                    <td>{run.topic}</td>
+                    <td>{run.aiCalls}</td>
+                    <td>{run.cacheHits}</td>
+                    <td>{run.articlesProcessed}</td>
+                    <td>{run.duplicateArticlesRemoved}</td>
+                    <td>{run.storiesGenerated}</td>
+                    <td>{ms(run.durationMs)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard

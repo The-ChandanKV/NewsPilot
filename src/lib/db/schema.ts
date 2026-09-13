@@ -272,6 +272,19 @@ export const emailDeliveries = sqliteTable(
 );
 
 /**
+ * Durable AI summary cache by content hash.
+ * Prevents re-paying Gemini/Claude when the same cluster inputs return.
+ */
+export const summaryCacheEntries = sqliteTable("summary_cache", {
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(),
+  contentHash: text("content_hash").notNull(),
+  payloadJson: text("payload_json").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+});
+
+/**
  * Append-only pipeline analytics events (admin/dev).
  * No API keys, emails, or client identifiers.
  */

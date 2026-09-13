@@ -11,6 +11,11 @@ export interface LlmCompletionRequest {
   responseFormat?: "text" | "json";
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Override HTTP retry count for this call.
+   * Summarizer sets 0 because it owns validation/backoff retries.
+   */
+  maxRetries?: number;
 }
 
 export interface LlmCompletionResult {

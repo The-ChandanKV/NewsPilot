@@ -1,12 +1,15 @@
 import { desc } from "drizzle-orm";
 import { listAnalyticsEvents } from "@/lib/analytics/events";
 import type {
+  DevelopmentPipelineMetrics,
   PipelineAnalyticsAlert,
   PipelineAnalyticsDayTrend,
   PipelineAnalyticsSnapshot,
   PipelineProviderFailureStat,
   PipelineTopicStats,
 } from "@/lib/analytics/types";
+import { getMemoryCacheSnapshot } from "@/lib/cache/memory";
+import { countDurableSummaries } from "@/lib/cache/summary-store";
 import { getDb } from "@/lib/db/client";
 import { jobRuns } from "@/lib/db/schema";
 import { listStoredDailyBriefings } from "@/lib/jobs/daily-briefing-store";
@@ -14,6 +17,7 @@ import type {
   DailyBriefingJobResult,
   StoredDailyBriefing,
 } from "@/lib/jobs/types";
+import { getRuntimePipelineMetrics } from "@/lib/metrics/runtime";
 import type { DailyBriefingStory } from "@/types/briefing";
 
 function pad2(value: number): string {
@@ -70,12 +74,53 @@ function listJobRuns(limit = 100) {
     .all();
 }
 
+function buildDevelopmentMetrics(): DevelopmentPipelineMetrics {
+  const runtime = getRuntimePipelineMetrics();
+  const caches = getMemoryCacheSnapshot();
+  return {
+    aiCalls: runtime.aiCalls,
+    cacheHits: runtime.cacheHits,
+    articlesProcessed: runtime.articlesProcessed,
+    duplicateArticlesRemoved: runtime.duplicateArticlesRemoved,
+    storiesGenerated: runtime.storiesGenerated,
+    averageProcessingTimeMs: runtime.averageProcessingTimeMs,
+    briefingRuns: runtime.briefingRuns,
+    summaryCacheHits: runtime.summaryCacheHits,
+    newsCacheHits: runtime.newsCacheHits,
+    briefingCacheHits: runtime.briefingCacheHits,
+    durableSummaryHits: runtime.durableSummaryHits,
+    durableSummariesStored: countDurableSummaries(),
+    aiDedupedCalls: runtime.aiDedupedCalls,
+    memoryCaches: {
+      news: {
+        hits: caches.news.hits,
+        misses: caches.news.misses,
+        hitRate: caches.news.hitRate,
+        size: caches.news.size,
+      },
+      summary: {
+        hits: caches.summary.hits,
+        misses: caches.summary.misses,
+        hitRate: caches.summary.hitRate,
+        size: caches.summary.size,
+      },
+      briefing: {
+        hits: caches.briefing.hits,
+        misses: caches.briefing.misses,
+        hitRate: caches.briefing.hitRate,
+        size: caches.briefing.size,
+      },
+    },
+    recentRuns: runtime.recentRuns,
+  };
+}
+
 /**
  * Derive operational alerts used to spot cost / reliability issues.
  * Pure function — safe to unit test without UI.
  */
 export function buildOperationalAlerts(
-  snapshot: Omit<PipelineAnalyticsSnapshot, "insights" | "alerts">,
+  snapshot: Omit<PipelineAnalyticsSnapshot, "insights" | "alerts" | "developmentMetrics">,
 ): PipelineAnalyticsAlert[] {
   const alerts: PipelineAnalyticsAlert[] = [];
   const { totals, trends, failedProviders } = snapshot;
@@ -424,7 +469,10 @@ export function computePipelineAnalytics(options?: {
   const durationSamples = briefings.map((b) => b.generationStats.generationDurationMs);
   const sourceSamples = briefings.flatMap((b) => b.stories.map(sourcesForStory));
 
-  const base: Omit<PipelineAnalyticsSnapshot, "insights" | "alerts"> = {
+  const base: Omit<
+    PipelineAnalyticsSnapshot,
+    "insights" | "alerts" | "developmentMetrics"
+  > = {
     generatedAt: now.toISOString(),
     windowDays: days,
     windowFrom,
@@ -453,7 +501,8 @@ export function computePipelineAnalytics(options?: {
   };
 
   const alerts = buildOperationalAlerts(base);
-  const withAlerts = { ...base, alerts };
+  const developmentMetrics = buildDevelopmentMetrics();
+  const withAlerts = { ...base, alerts, developmentMetrics };
 
   return {
     ...withAlerts,

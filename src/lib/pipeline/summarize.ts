@@ -1,8 +1,17 @@
 import { getEnv } from "@/config/env";
 import { summaryCache } from "@/lib/cache/memory";
+import {
+  getDurableSummary,
+  setDurableSummary,
+} from "@/lib/cache/summary-store";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { recordAnalyticsEvent } from "@/lib/analytics/events";
+import {
+  recordAiCall,
+  recordAiDedupedCall,
+  recordSummaryCacheHit,
+} from "@/lib/metrics/runtime";
 import {
   buildSummarizationInput,
   buildSummarizerUserPrompt,
@@ -39,6 +48,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Coalesce concurrent AI summaries for the same content hash. */
+const inflightSummaries = new Map<string, Promise<StorySummary>>();
+
 async function completeWithValidation(
   provider: LlmProvider,
   userPrompt: string,
@@ -63,6 +75,8 @@ async function completeWithValidation(
         responseFormat: "json",
         maxTokens,
         temperature: 0.2,
+        // Outer loop owns retries — avoid multiplicative HTTP retries.
+        maxRetries: 0,
       });
 
       const payload = parseStorySummaryJson(completion.content);
@@ -147,45 +161,14 @@ function fallbackSummary(
   };
 }
 
-/**
- * Summarize ONE story cluster with a single LLM call (cached by content hash).
- * Pass `reuseSummary` to skip LLM when a prior briefing already covered this content.
- */
-export async function summarizeStoryCluster(
+async function generateFreshSummary(
   cluster: StoryCluster,
   topic: string,
-  options?: {
-    provider?: LlmProvider;
-    forceRefresh?: boolean;
-    /** Reuse a prior summary when the story has not materially changed. */
-    reuseSummary?: StorySummary;
-  },
+  provider: LlmProvider,
+  hash: string,
 ): Promise<StorySummary> {
   const env = getEnv();
-  const provider = options?.provider ?? getLlmProvider();
   const maxArticles = env.AI_SUMMARY_MAX_ARTICLES_PER_CLUSTER;
-  const hash = storyContentHash(cluster, topic, maxArticles);
-  const key = cacheKey(provider.name, hash);
-
-  if (options?.reuseSummary) {
-    logger.info("Reusing prior briefing summary (no material change)", {
-      storyId: cluster.id,
-      hash,
-    });
-    return {
-      ...options.reuseSummary,
-      contentHash: hash,
-      cached: true,
-    };
-  }
-
-  if (!options?.forceRefresh) {
-    const cached = summaryCache.get<StorySummary>(key);
-    if (cached) {
-      logger.info("Summary cache hit", { storyId: cluster.id, hash });
-      return { ...cached, cached: true, contentHash: hash };
-    }
-  }
 
   if (!provider.isConfigured()) {
     return fallbackSummary(cluster, hash, provider.name, "provider not configured");
@@ -221,7 +204,17 @@ export async function summarizeStoryCluster(
       isAiGenerated: true,
     };
 
-    summaryCache.set(key, summary, env.AI_SUMMARY_CACHE_TTL_SECONDS);
+    summaryCache.set(
+      cacheKey(provider.name, hash),
+      summary,
+      env.AI_SUMMARY_CACHE_TTL_SECONDS,
+    );
+    setDurableSummary({
+      provider: provider.name,
+      contentHash: hash,
+      summary,
+      ttlSeconds: env.AI_SUMMARY_CACHE_TTL_SECONDS,
+    });
     return summary;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -230,6 +223,82 @@ export async function summarizeStoryCluster(
       reason,
     });
     return fallbackSummary(cluster, hash, provider.name, reason);
+  }
+}
+
+/**
+ * Summarize ONE story cluster with a single LLM call (cached by content hash).
+ * Never calls AI when a valid memory, durable, or prior-snapshot summary exists
+ * unless `forceAiRefresh` is set.
+ */
+export async function summarizeStoryCluster(
+  cluster: StoryCluster,
+  topic: string,
+  options?: {
+    provider?: LlmProvider;
+    /** @deprecated Prefer forceAiRefresh — bypasses summary caches only. */
+    forceRefresh?: boolean;
+    /** Bypass memory + durable summary caches (expensive). */
+    forceAiRefresh?: boolean;
+    /** Reuse a prior summary when the story has not materially changed. */
+    reuseSummary?: StorySummary;
+  },
+): Promise<StorySummary> {
+  const env = getEnv();
+  const provider = options?.provider ?? getLlmProvider();
+  const maxArticles = env.AI_SUMMARY_MAX_ARTICLES_PER_CLUSTER;
+  const hash = storyContentHash(cluster, topic, maxArticles);
+  const key = cacheKey(provider.name, hash);
+  const forceAi = options?.forceAiRefresh === true;
+
+  if (options?.reuseSummary) {
+    logger.info("Reusing prior briefing summary (no material change)", {
+      storyId: cluster.id,
+      hash,
+    });
+    recordSummaryCacheHit("reuse");
+    return {
+      ...options.reuseSummary,
+      contentHash: hash,
+      cached: true,
+    };
+  }
+
+  if (!forceAi) {
+    const cached = summaryCache.get<StorySummary>(key);
+    if (cached) {
+      logger.info("Summary cache hit", { storyId: cluster.id, hash });
+      recordSummaryCacheHit("memory");
+      return { ...cached, cached: true, contentHash: hash };
+    }
+
+    const durable = getDurableSummary(provider.name, hash);
+    if (durable) {
+      logger.info("Durable summary cache hit", { storyId: cluster.id, hash });
+      summaryCache.set(key, durable, env.AI_SUMMARY_CACHE_TTL_SECONDS);
+      recordSummaryCacheHit("durable");
+      return { ...durable, cached: true, contentHash: hash };
+    }
+  }
+
+  const pending = inflightSummaries.get(key);
+  if (pending) {
+    logger.info("Deduping in-flight AI summary", { storyId: cluster.id, hash });
+    recordAiDedupedCall();
+    const shared = await pending;
+    return { ...shared, cached: true, contentHash: hash };
+  }
+
+  const loadPromise = generateFreshSummary(cluster, topic, provider, hash);
+  inflightSummaries.set(key, loadPromise);
+  try {
+    const summary = await loadPromise;
+    if (summary.isAiGenerated && !summary.cached) {
+      recordAiCall();
+    }
+    return summary;
+  } finally {
+    inflightSummaries.delete(key);
   }
 }
 
@@ -244,7 +313,9 @@ export async function summarizeStoryClusters(
   options?: {
     provider?: LlmProvider;
     maxStories?: number;
+    /** @deprecated Prefer forceAiRefresh. */
     forceRefresh?: boolean;
+    forceAiRefresh?: boolean;
     reuseByClusterId?: Map<string, StorySummary>;
   },
 ): Promise<SummarizeStoriesResult> {
@@ -252,6 +323,7 @@ export async function summarizeStoryClusters(
   const provider = options?.provider ?? getLlmProvider();
   const limit = options?.maxStories ?? env.MAX_STORIES_TO_SUMMARIZE;
   const selected = clusters.slice(0, limit);
+  const forceAiRefresh = options?.forceAiRefresh === true;
 
   let llmCalls = 0;
   let cacheHits = 0;
@@ -262,7 +334,7 @@ export async function summarizeStoryClusters(
     const reuseSummary = options?.reuseByClusterId?.get(cluster.id);
     const ai = await summarizeStoryCluster(cluster, topic, {
       provider,
-      forceRefresh: options?.forceRefresh,
+      forceAiRefresh,
       reuseSummary,
     });
 
