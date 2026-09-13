@@ -1,0 +1,51 @@
+{
+  "tiers": {
+    "1": {
+      "label": "Widely cited wire / national newsroom",
+      "note": "Tier reflects common citation patterns in news aggregation, not political neutrality.",
+      "domains": [
+        "reuters.com",
+        "apnews.com",
+        "bbc.com",
+        "bbc.co.uk",
+        "npr.org",
+        "theguardian.com"
+      ],
+      "aliases": ["reuters", "ap", "ap news", "associated press", "bbc", "npr", "the guardian", "guardian"]
+    },
+    "2": {
+      "label": "Specialty / business technology outlet",
+      "note": "Recognized specialty publications; not a judgment of objectivity.",
+      "domains": [
+        "techcrunch.com",
+        "arstechnica.com",
+        "wired.com",
+        "theverge.com",
+        "bloomberg.com",
+        "wsj.com",
+        "ft.com"
+      ],
+      "aliases": ["techcrunch", "ars technica", "wired", "the verge", "bloomberg", "wall street journal", "wsj", "financial times", "ft"]
+    },
+    "3": {
+      "label": "Other / unclassified outlet",
+      "note": "Default when a publisher is not listed in configured tiers.",
+      "domains": [],
+      "aliases": []
+    }
+  },
+  "publisherGroups": [
+    {
+      "id": "reuters",
+      "names": ["reuters", "reuters.com"]
+    },
+    {
+      "id": "ap",
+      "names": ["ap", "ap news", "associated press", "apnews.com"]
+    },
+    {
+      "id": "bbc",
+      "names": ["bbc", "bbc.com", "bbc.co.uk", "bbc news"]
+    }
+  ]
+}

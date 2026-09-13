@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>artificial intelligence - Google News</title>
+    <link>https://news.google.com/search?q=artificial+intelligence</link>
+    <item>
+      <title>OpenAI unveils new multimodal artificial intelligence model for enterprise - Reuters</title>
+      <link>https://www.reuters.com/technology/openai-unveils-new-multimodal-model-2026-09-11/</link>
+      <guid isPermaLink="false">ai-reuters-1</guid>
+      <pubDate>Thu, 11 Sep 2026 14:20:00 GMT</pubDate>
+      <description><![CDATA[<a href="https://www.reuters.com/technology/openai-unveils-new-multimodal-model-2026-09-11/">OpenAI unveils new multimodal model</a><p>OpenAI released a multimodal artificial intelligence system aimed at enterprise workflows.</p><img src="https://example.com/images/ai-1.jpg" />]]></description>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>EU regulators tighten rules on high-risk AI systems - BBC</title>
+      <link>https://www.bbc.com/news/technology-ai-regulation-2026</link>
+      <guid isPermaLink="false">ai-bbc-1</guid>
+      <pubDate>Thu, 11 Sep 2026 09:05:00 GMT</pubDate>
+      <description><![CDATA[European officials expanded oversight of high-risk artificial intelligence applications.]]></description>
+      <source url="https://www.bbc.com">BBC</source>
+    </item>
+    <item>
+      <title>Chipmakers race to meet AI data center demand - Bloomberg</title>
+      <link>https://www.bloomberg.com/news/articles/2026-09-10/chipmakers-ai-demand</link>
+      <guid isPermaLink="false">ai-bbg-1</guid>
+      <pubDate>Wed, 10 Sep 2026 18:40:00 GMT</pubDate>
+      <description><![CDATA[Semiconductor firms expanded production capacity to supply artificial intelligence accelerators.]]></description>
+      <source url="https://www.bloomberg.com">Bloomberg</source>
+    </item>
+    <item>
+      <title>Duplicate story about OpenAI multimodal model - Reuters</title>
+      <link>https://www.reuters.com/technology/openai-unveils-new-multimodal-model-2026-09-11/?utm_source=news</link>
+      <guid isPermaLink="false">ai-reuters-dup</guid>
+      <pubDate>Thu, 11 Sep 2026 14:25:00 GMT</pubDate>
+      <description><![CDATA[Duplicate URL variant for dedupe testing.]]></description>
+      <source url="https://www.reuters.com">Reuters</source>
+    </item>
+    <item>
+      <title>Local sports club wins charity match - Local Paper</title>
+      <link>https://example.com/sports/charity-match</link>
+      <guid isPermaLink="false">noise-1</guid>
+      <pubDate>Thu, 11 Sep 2026 12:00:00 GMT</pubDate>
+      <description><![CDATA[Unrelated sports story that should fail relevance filtering.]]></description>
+      <source url="https://example.com">Local Paper</source>
+    </item>
+    <item>
+      <title>Research lab publishes paper with no date - Nature</title>
+      <link>https://www.nature.com/articles/ai-no-date</link>
+      <guid isPermaLink="false">ai-nodate</guid>
+      <description><![CDATA[An artificial intelligence research note missing pubDate.]]></description>
+      <source url="https://www.nature.com">Nature</source>
+    </item>
+  </channel>
+</rss>

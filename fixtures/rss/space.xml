@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>space - Google News</title>
+    <link>https://news.google.com/search?q=space</link>
+    <item>
+      <title>NASA spacecraft captures new images of Europa - AP News</title>
+      <link>https://apnews.com/article/nasa-europa-images-2026</link>
+      <guid isPermaLink="false">space-ap-1</guid>
+      <pubDate>Fri, 12 Sep 2026 08:15:00 GMT</pubDate>
+      <description><![CDATA[NASA released new high-resolution images of Jupiter's icy moon Europa from a flyby.]]></description>
+      <source url="https://apnews.com">AP News</source>
+    </item>
+    <item>
+      <title>Private rocket launches constellation of Earth-observation satellites - Space.com</title>
+      <link>https://www.space.com/private-rocket-earth-observation-2026</link>
+      <guid isPermaLink="false">space-sc-1</guid>
+      <pubDate>Thu, 11 Sep 2026 22:10:00 GMT</pubDate>
+      <description><![CDATA[A commercial launch added satellites that will monitor climate and maritime activity from space.]]></description>
+      <source url="https://www.space.com">Space.com</source>
+    </item>
+    <item>
+      <title>Astronomers detect unusual radio signal from deep space - The Guardian</title>
+      <link>https://www.theguardian.com/science/2026/sep/11/radio-signal-deep-space</link>
+      <guid isPermaLink="false">space-tg-1</guid>
+      <pubDate>Thu, 11 Sep 2026 16:00:00 GMT</pubDate>
+      <description><![CDATA[Researchers are studying a repeating radio burst that may originate beyond the Milky Way.]]></description>
+      <source url="https://www.theguardian.com">The Guardian</source>
+    </item>
+  </channel>
+</rss>
