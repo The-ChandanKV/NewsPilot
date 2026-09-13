@@ -17,6 +17,7 @@ type Props = {
 };
 
 function linkifyAnswer(text: string, citations: ResearchCitation[]) {
+  const allowed = new Set(citations.map((c) => c.url));
   const urlToCitation = new Map(citations.map((c) => [c.url, c]));
   const parts: Array<{ type: "text" | "link"; value: string; href?: string }> =
     [];
@@ -28,7 +29,11 @@ function linkifyAnswer(text: string, citations: ResearchCitation[]) {
       parts.push({ type: "text", value: text.slice(last, match.index) });
     }
     const href = match[1].replace(/[.,);]+$/, "");
-    parts.push({ type: "link", value: href, href });
+    if (allowed.has(href)) {
+      parts.push({ type: "link", value: href, href });
+    } else {
+      parts.push({ type: "text", value: "[link omitted]" });
+    }
     last = match.index + match[0].length;
   }
   if (last < text.length) {

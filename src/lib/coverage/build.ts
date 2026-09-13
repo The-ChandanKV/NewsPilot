@@ -90,9 +90,18 @@ export function scrubPoliticalLabels(text: string): string {
 export function scrubComparison(
   comparison: CoverageComparison,
 ): CoverageComparison {
-  const scrubClaim = <T extends { claim: string }>(item: T): T => ({
+  const scrubClaim = <T extends { claim: string; articleUrls?: string[] }>(
+    item: T,
+  ): T => ({
     ...item,
     claim: scrubPoliticalLabels(item.claim),
+    ...(item.articleUrls
+      ? {
+          articleUrls: item.articleUrls
+            .map((url) => sanitizeUrlForPrompt(url))
+            .filter((url): url is string => Boolean(url)),
+        }
+      : {}),
   });
 
   return {
@@ -104,6 +113,7 @@ export function scrubComparison(
       .filter((item) => item.claim.length > 0),
     sourceReports: comparison.sourceReports.map((report) => ({
       ...report,
+      url: sanitizeUrlForPrompt(report.url) ?? undefined,
       details: report.details
         .map(scrubPoliticalLabels)
         .filter((detail) => detail.length > 0),
@@ -120,6 +130,7 @@ export function scrubComparison(
       positions: item.positions.map((position) => ({
         ...position,
         claim: scrubPoliticalLabels(position.claim),
+        url: sanitizeUrlForPrompt(position.url) ?? undefined,
       })),
     })),
     missingInformation: comparison.missingInformation

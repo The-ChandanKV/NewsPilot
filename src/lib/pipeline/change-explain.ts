@@ -4,6 +4,7 @@ import type { LlmProvider } from "@/lib/providers/llm/types";
 import {
   appendSecurityRulesToSystemPrompt,
   sanitizeUntrustedText,
+  scrubModelOutputText,
   wrapUntrustedDataBlock,
 } from "@/lib/security";
 
@@ -59,8 +60,11 @@ export async function maybeExplainChangeWithAi(args: {
       temperature: 0.1,
     });
 
-    const text = completion.content.trim().replace(/^["']|["']$/g, "");
-    if (!text || text.length > 280) {
+    const text = scrubModelOutputText(
+      completion.content.trim().replace(/^["']|["']$/g, ""),
+      280,
+    );
+    if (!text) {
       return null;
     }
     return text;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeAiOutputText } from "@/lib/security";
 
 export const storySummarySchema = z.object({
   headline: z.string().min(1).max(240),
@@ -36,6 +37,37 @@ export const storySummarySchema = z.object({
 
 export type StorySummaryPayload = z.infer<typeof storySummarySchema>;
 
+function scrubSummaryPayload(payload: StorySummaryPayload): StorySummaryPayload {
+  return {
+    headline: sanitizeAiOutputText(payload.headline, 240),
+    summary: sanitizeAiOutputText(payload.summary, 4000),
+    whyItMatters: sanitizeAiOutputText(payload.whyItMatters, 1000),
+    keyFacts: payload.keyFacts
+      .map((fact) => sanitizeAiOutputText(fact, 400))
+      .filter(Boolean),
+    entities: payload.entities
+      .map((entity) => sanitizeAiOutputText(entity, 120))
+      .filter(Boolean),
+    confidence: payload.confidence,
+    uncertaintyNotes: payload.uncertaintyNotes
+      .map((note) => sanitizeAiOutputText(note, 400))
+      .filter(Boolean),
+    sourceDisagreements: payload.sourceDisagreements.map((item) => ({
+      issue: sanitizeAiOutputText(item.issue, 300),
+      positions: item.positions.map((position) => ({
+        source: sanitizeAiOutputText(position.source, 120),
+        claim: sanitizeAiOutputText(position.claim, 400),
+      })),
+    })),
+    reportedFacts: payload.reportedFacts
+      .map((fact) => sanitizeAiOutputText(fact, 400))
+      .filter(Boolean),
+    inferences: payload.inferences
+      .map((fact) => sanitizeAiOutputText(fact, 400))
+      .filter(Boolean),
+  };
+}
+
 export function parseStorySummaryJson(raw: string): StorySummaryPayload {
   const trimmed = raw.trim();
   // Tolerate accidental markdown fences from some models.
@@ -53,5 +85,5 @@ export function parseStorySummaryJson(raw: string): StorySummaryPayload {
     );
   }
 
-  return storySummarySchema.parse(parsed);
+  return scrubSummaryPayload(storySummarySchema.parse(parsed));
 }

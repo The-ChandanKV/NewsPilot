@@ -1,5 +1,7 @@
 export {
   sanitizeUntrustedText,
+  sanitizeAiOutputText,
+  neutralizeBoundaryMarkers,
   wrapUntrustedDataBlock,
   appendSecurityRulesToSystemPrompt,
   UNTRUSTED_DATA_SECURITY_RULES,
@@ -15,3 +17,10 @@ export {
   assertSafeHttpUrl,
   sanitizeUrlForPrompt,
 } from "@/lib/security/urls";
+export {
+  filterAnswerUrlsToAllowlist,
+  isUnsafeModelOutput,
+  scrubModelOutputText,
+  isSafeHttpUrlString,
+  collectSafeHttpUrls,
+} from "@/lib/security/output";

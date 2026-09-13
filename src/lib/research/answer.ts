@@ -15,7 +15,7 @@ import type {
   ResearchChatOptions,
   ResearchCitation,
 } from "@/lib/research/types";
-import { sanitizeUntrustedText, wrapUntrustedDataBlock } from "@/lib/security";
+import { sanitizeUntrustedText, wrapUntrustedDataBlock, filterAnswerUrlsToAllowlist, scrubModelOutputText } from "@/lib/security";
 
 const INSUFFICIENT_MESSAGE =
   "I don't have enough stored news context to answer that from NewsPilot's database. Try a different question, open a topic briefing first so stories are stored, or check back after the daily briefing job runs.";
@@ -119,11 +119,15 @@ export async function answerResearchQuestion(
   });
 
   const allCitations = citationsFromStories(stories);
-  let answer = completion.content.trim().slice(0, 8000);
+  const rawAnswer = completion.content.trim().slice(0, 8000);
   const insufficient =
     /not enough|insufficient|don't have enough|do not have enough|no stored news|cannot answer from the (provided|retrieved)/i.test(
-      answer,
+      rawAnswer,
     );
+
+  let answer =
+    scrubModelOutputText(rawAnswer, 8000) ??
+    (insufficient ? rawAnswer.slice(0, 8000) : INSUFFICIENT_MESSAGE);
 
   // Ensure a Sources section with clickable URLs when the model omitted it.
   if (!insufficient && !/\bSources:\b/i.test(answer) && allCitations.length > 0) {
@@ -133,6 +137,11 @@ export async function answerResearchQuestion(
       .map((c) => `[${c.label}] ${c.title} — ${c.url}`);
     answer = `${answer}\n\nSources:\n${lines.join("\n")}`;
   }
+
+  answer = filterAnswerUrlsToAllowlist(
+    answer,
+    allCitations.map((c) => c.url),
+  );
 
   const citations = filterCitationsForAnswer(answer, allCitations);
 

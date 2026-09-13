@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { migrate } from "@/lib/db/migrate";
 import { compareStoryCoverage } from "@/lib/coverage/compare";
+import { resolveCoverageStory } from "@/lib/coverage/types";
 import { toErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import {
@@ -9,14 +10,14 @@ import {
   readJsonWithLimit,
   sanitizeUntrustedText,
 } from "@/lib/security";
-import type { DailyBriefingStory } from "@/types/briefing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
  * POST /api/coverage/compare — source perspective comparison for one story.
- * Body: { story: DailyBriefingStory, topic?: string }
+ * Body: { storyId?: string, story?: DailyBriefingStory, topic?: string }
+ * Prefers server-stored story by id; validates client story as untrusted fallback.
  * AI runs server-side only; body size + rate limited.
  */
 export async function POST(request: NextRequest) {
@@ -29,24 +30,18 @@ export async function POST(request: NextRequest) {
     });
 
     const payload = await readJsonWithLimit<{
-      story?: DailyBriefingStory;
+      storyId?: string;
+      story?: unknown;
       topic?: string;
     }>(request, { maxBytes: 96 * 1024 });
 
-    if (!payload.story || typeof payload.story !== "object") {
-      return NextResponse.json(
-        {
-          error: {
-            code: "INVALID_STORY",
-            message: "story is required",
-          },
-        },
-        { status: 400 },
-      );
-    }
+    const story = resolveCoverageStory({
+      storyId: payload.storyId,
+      story: payload.story,
+    });
 
     const result = await compareStoryCoverage({
-      story: payload.story,
+      story,
       topic: payload.topic
         ? sanitizeUntrustedText(payload.topic, { maxLength: 120 })
         : undefined,

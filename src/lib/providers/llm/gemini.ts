@@ -73,7 +73,7 @@ export class GeminiProvider implements LlmProvider {
 
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/` +
-      `${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GOOGLE_API_KEY)}`;
+      `${encodeURIComponent(model)}:generateContent`;
 
     const payload: Record<string, unknown> = {
       contents,
@@ -105,6 +105,7 @@ export class GeminiProvider implements LlmProvider {
       errorNamespace: "ai",
       headers: {
         "Content-Type": "application/json",
+        "x-goog-api-key": env.GOOGLE_API_KEY,
       },
       body: JSON.stringify(payload),
     });

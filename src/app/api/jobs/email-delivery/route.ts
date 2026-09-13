@@ -7,6 +7,7 @@ import { requireJobSecret } from "@/lib/jobs/daily-briefing-store";
 import { runEmailDeliveryJob } from "@/lib/notifications/delivery";
 import { getNotificationProvider } from "@/lib/notifications/router";
 import { listEmailDeliveries } from "@/lib/notifications/subscription-store";
+import { readJsonWithLimit } from "@/lib/security";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -14,10 +15,17 @@ export const maxDuration = 120;
 /**
  * GET /api/jobs/email-delivery — recent delivery log + provider status
  * POST /api/jobs/email-delivery — send emails from stored DailyBriefings
+ * Auth: x-daily-job-secret (required in production).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     migrate();
+    const env = getEnv();
+    const secret =
+      request.headers.get("x-daily-job-secret") ??
+      request.nextUrl.searchParams.get("secret");
+    requireJobSecret(secret, env.DAILY_JOB_SECRET);
+
     const provider = getNotificationProvider();
     return NextResponse.json({
       provider: {
@@ -44,11 +52,11 @@ export async function POST(request: NextRequest) {
       request.nextUrl.searchParams.get("secret");
     requireJobSecret(secret, env.DAILY_JOB_SECRET);
 
-    const payload = (await request.json().catch(() => ({}))) as {
+    const payload = await readJsonWithLimit<{
       date?: string;
       ignoreSchedule?: boolean;
       forceResend?: boolean;
-    };
+    }>(request, { maxBytes: 16 * 1024 });
 
     const result = await runEmailDeliveryJob({
       date: payload.date,
